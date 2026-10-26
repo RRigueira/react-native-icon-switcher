@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.2](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.1...v0.1.2) (2026-10-26)
+
+### Bug Fixes
+
+* **sync:** preserve hand-maintained native files and stop writing CFBundleIcons ([4328d45](https://github.com/RRigueira/react-native-icon-switcher/commit/4328d45f3aadebc27b1d17154a0dc6fbdf5a14f9))
+
 ## [0.1.1](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.0...v0.1.1) (2026-10-26)
 
 # 0.1.0 (2026-10-26)
