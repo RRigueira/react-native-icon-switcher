@@ -1,0 +1,70 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    # React Native is 0.x, so its "minor" bumps are breaking; RN and Expo SDK
+    # upgrades are done manually together.
+    ignore:
+      - dependency-name: react
+      - dependency-name: react-native
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+      - dependency-name: react-dom
+      # Must match the react version exactly (all updates held back).
+      - dependency-name: react-test-renderer
+      - dependency-name: expo
+        update-types:
+          - version-update:semver-major
+      - dependency-name: expo-*
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@expo/*'
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@react-native/*'
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+      # Majors that must move with the React / React Native toolchain.
+      - dependency-name: '@testing-library/react-native'
+        update-types:
+          - version-update:semver-major
+      - dependency-name: eslint
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@eslint/*'
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/setup
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      github-actions:
+        patterns:
+          - '*'

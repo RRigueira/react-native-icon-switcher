@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig",
+  "exclude": [
+    "example",
+    "example-bare",
+    "lib",
+    "plugin",
+    "jest",
+    "**/__tests__",
+    "**/__mocks__",
+    "src/typetests"
+  ]
+}

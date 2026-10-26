@@ -1,0 +1,53 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`applyInfoPlist matches snapshot after transform 1`] = `
+{
+  "CADisableMinimumFrameDurationOnPhone": true,
+  "CFBundleDevelopmentRegion": "$(DEVELOPMENT_LANGUAGE)",
+  "CFBundleExecutable": "$(EXECUTABLE_NAME)",
+  "CFBundleIcons": {
+    "CFBundlePrimaryIcon": {
+      "CFBundleIconName": "AppIcon",
+    },
+  },
+  "CFBundleIdentifier": "$(PRODUCT_BUNDLE_IDENTIFIER)",
+  "CFBundleInfoDictionaryVersion": "6.0",
+  "CFBundleName": "$(PRODUCT_NAME)",
+  "CFBundlePackageType": "$(PRODUCT_BUNDLE_PACKAGE_TYPE)",
+  "CFBundleShortVersionString": "1.0",
+  "CFBundleSignature": "????",
+  "CFBundleVersion": "1",
+  "IconSwitcherIcons": [
+    "default",
+    "halloween",
+  ],
+  "LSMinimumSystemVersion": "12.0",
+  "LSRequiresIPhoneOS": true,
+  "NSAppTransportSecurity": {
+    "NSAllowsArbitraryLoads": false,
+    "NSAllowsLocalNetworking": true,
+  },
+  "UIApplicationSceneManifest": {
+    "UIApplicationSupportsMultipleScenes": false,
+    "UISceneConfigurations": {
+      "UIWindowSceneSessionRoleApplication": [
+        {
+          "UISceneConfigurationName": "Default Configuration",
+          "UISceneDelegateClassName": "$(PRODUCT_MODULE_NAME).SceneDelegate",
+        },
+      ],
+    },
+  },
+  "UILaunchStoryboardName": "SplashScreen",
+  "UIRequiredDeviceCapabilities": [
+    "arm64",
+  ],
+  "UIStatusBarStyle": "UIStatusBarStyleDefault",
+  "UISupportedInterfaceOrientations": [
+    "UIInterfaceOrientationPortrait",
+    "UIInterfaceOrientationLandscapeLeft",
+    "UIInterfaceOrientationLandscapeRight",
+  ],
+  "UIViewControllerBasedStatusBarAppearance": false,
+}
+`;

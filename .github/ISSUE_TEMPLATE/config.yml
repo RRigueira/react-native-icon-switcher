@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/RRigueira/react-native-icon-switcher/security/advisories/new
+    about: Report security issues privately — see SECURITY.md. Do not open a public issue.
+  - name: Feature request
+    url: https://github.com/RRigueira/react-native-icon-switcher/discussions/new?category=ideas
+    about: Propose features or detection coverage improvements via Discussions.
+  - name: Questions & help
+    url: https://github.com/RRigueira/react-native-icon-switcher/discussions
+    about: Ask usage questions in Discussions.

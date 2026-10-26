@@ -1,0 +1,199 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`applyAndroidManifest matches snapshot after transform 1`] = `
+{
+  "manifest": {
+    "$": {
+      "package": "com.example.app",
+      "xmlns:android": "http://schemas.android.com/apk/res/android",
+      "xmlns:tools": "http://schemas.android.com/tools",
+    },
+    "application": [
+      {
+        "$": {
+          "android:allowBackup": "false",
+          "android:icon": "@mipmap/ic_launcher",
+          "android:label": "@string/app_name",
+          "android:name": ".MainApplication",
+          "android:roundIcon": "@mipmap/ic_launcher_round",
+          "android:supportsRtl": "true",
+          "android:theme": "@style/AppTheme",
+        },
+        "activity": [
+          {
+            "$": {
+              "android:configChanges": "keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|smallestScreenSize",
+              "android:exported": "true",
+              "android:launchMode": "singleTask",
+              "android:name": ".MainActivity",
+              "android:theme": "@style/Theme.App.SplashScreen",
+              "android:windowSoftInputMode": "adjustResize",
+            },
+            "intent-filter": [
+              {
+                "action": [
+                  {
+                    "$": {
+                      "android:name": "android.intent.action.VIEW",
+                    },
+                  },
+                ],
+                "category": [
+                  {
+                    "$": {
+                      "android:name": "android.intent.category.DEFAULT",
+                    },
+                  },
+                  {
+                    "$": {
+                      "android:name": "android.intent.category.BROWSABLE",
+                    },
+                  },
+                ],
+                "data": [
+                  {
+                    "$": {
+                      "android:host": "open",
+                      "android:scheme": "myapp",
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        "activity-alias": [
+          {
+            "$": {
+              "android:enabled": "true",
+              "android:exported": "true",
+              "android:icon": "@mipmap/ic_launcher",
+              "android:name": ".IconSwitcher_default",
+              "android:roundIcon": "@mipmap/ic_launcher_round",
+              "android:targetActivity": ".MainActivity",
+            },
+            "intent-filter": [
+              {
+                "action": [
+                  {
+                    "$": {
+                      "android:name": "android.intent.action.MAIN",
+                    },
+                  },
+                ],
+                "category": [
+                  {
+                    "$": {
+                      "android:name": "android.intent.category.LAUNCHER",
+                    },
+                  },
+                ],
+              },
+            ],
+            "meta-data": [
+              {
+                "$": {
+                  "android:name": "com.iconswitcher.icon",
+                  "android:value": "default",
+                },
+              },
+            ],
+          },
+          {
+            "$": {
+              "android:enabled": "false",
+              "android:exported": "true",
+              "android:icon": "@mipmap/ic_launcher_halloween",
+              "android:name": ".IconSwitcher_halloween",
+              "android:roundIcon": "@mipmap/ic_launcher_halloween_round",
+              "android:targetActivity": ".MainActivity",
+            },
+            "intent-filter": [
+              {
+                "action": [
+                  {
+                    "$": {
+                      "android:name": "android.intent.action.MAIN",
+                    },
+                  },
+                ],
+                "category": [
+                  {
+                    "$": {
+                      "android:name": "android.intent.category.LAUNCHER",
+                    },
+                  },
+                ],
+              },
+            ],
+            "meta-data": [
+              {
+                "$": {
+                  "android:name": "com.iconswitcher.icon",
+                  "android:value": "halloween",
+                },
+              },
+            ],
+          },
+        ],
+        "meta-data": [
+          {
+            "$": {
+              "android:name": "com.iconswitcher.icons",
+              "android:value": "default,halloween",
+            },
+          },
+          {
+            "$": {
+              "android:name": "com.iconswitcher.applyOn",
+              "android:value": "background",
+            },
+          },
+          {
+            "$": {
+              "android:name": "com.iconswitcher.skipBrands",
+              "android:value": "samsung",
+            },
+          },
+        ],
+      },
+    ],
+    "queries": [
+      {
+        "intent": [
+          {
+            "action": [
+              {
+                "$": {
+                  "android:name": "android.intent.action.VIEW",
+                },
+              },
+            ],
+            "category": [
+              {
+                "$": {
+                  "android:name": "android.intent.category.BROWSABLE",
+                },
+              },
+            ],
+            "data": [
+              {
+                "$": {
+                  "android:scheme": "https",
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    "uses-permission": [
+      {
+        "$": {
+          "android:name": "android.permission.INTERNET",
+        },
+      },
+    ],
+  },
+}
+`;

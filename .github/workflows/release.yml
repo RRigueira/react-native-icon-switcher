@@ -1,0 +1,68 @@
+name: Release
+
+# Publishes to npm when a GitHub Release is published (created by `yarn release`).
+# Uses npm Trusted Publishing (OIDC): no npm token is stored in the repository.
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    # Configure this environment with a required reviewer so every publish needs approval.
+    environment: npm
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Fresh install without the shared dependency cache, so a poisoned cache can't reach a publish.
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Check tag matches package version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Release tag $TAG does not match package.json version $VERSION"
+            exit 1
+          fi
+
+      - name: Check npm supports trusted publishing
+        run: |
+          node -e "const [a,b,c]=process.argv[1].split('.').map(Number); if (a<11||(a===11&&(b<5||(b===5&&c<1)))) { console.error('npm >= 11.5.1 required, got '+process.argv[1]); process.exit(1) }" "$(npm --version)"
+
+      - name: Lint, typecheck and test
+        run: |
+          yarn lint
+          yarn typecheck
+          yarn test --maxWorkers=2
+
+      - name: Build
+        run: yarn prepare
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public

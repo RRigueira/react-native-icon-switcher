@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    "paths": {
+      "react-native-icon-switcher": ["../index.tsx"]
+    }
+  },
+  "include": ["../typetests/icon-name.typetest.ts"]
+}

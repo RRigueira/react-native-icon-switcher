@@ -1,0 +1,39 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  package="com.iconswitcher.test">
+
+  <application android:label="Test">
+    <meta-data
+      android:name="com.iconswitcher.applyOn"
+      android:value="background" />
+
+    <activity
+      android:name=".MainActivity"
+      android:exported="true" />
+
+    <activity-alias
+      android:name=".IconSwitcher_default"
+      android:enabled="true"
+      android:exported="true"
+      android:targetActivity=".MainActivity">
+      <meta-data
+        android:name="com.iconswitcher.icon"
+        android:value="default" />
+    </activity-alias>
+
+    <activity-alias
+      android:name=".IconSwitcher_halloween"
+      android:enabled="false"
+      android:exported="true"
+      android:targetActivity=".MainActivity">
+      <meta-data
+        android:name="com.iconswitcher.icon"
+        android:value="halloween" />
+    </activity-alias>
+
+    <activity-alias
+      android:name=".UnmarkedAlias"
+      android:enabled="false"
+      android:exported="true"
+      android:targetActivity=".MainActivity" />
+  </application>
+</manifest>

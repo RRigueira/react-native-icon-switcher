@@ -1,0 +1,129 @@
+name: 🐛 Bug report
+description: Report a reproducible bug or regression in this library.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug.
+
+        **Security vulnerabilities:** do not file a public issue — use [private vulnerability reporting](https://github.com/RRigueira/react-native-icon-switcher/security/advisories/new) (see [SECURITY.md](https://github.com/RRigueira/react-native-icon-switcher/blob/main/SECURITY.md)).
+  - type: checkboxes
+    attributes:
+      label: Before submitting
+      description: Please check these first.
+      options:
+        - label: I tested with the latest published version of the library.
+          required: true
+        - label: I searched existing issues for duplicates.
+          required: true
+        - label: This is not a security report (those go through private advisory reporting).
+          required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Bug summary
+      description: Clear description of what went wrong. Include stack traces if relevant.
+    validations:
+      required: true
+  - type: input
+    id: library-version
+    attributes:
+      label: Library version
+      description: Version of `react-native-icon-switcher`.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: rn-version
+    attributes:
+      label: React Native version
+      placeholder: "0.88.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: project-type
+    attributes:
+      label: Project type
+      options:
+        - Expo (dev build / prebuild)
+        - Bare React Native
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: expo-sdk
+    attributes:
+      label: Expo SDK (if Expo)
+      description: Leave blank for bare RN.
+      placeholder: "58"
+    validations:
+      required: false
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - iOS
+        - Android
+        - Both
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      description: e.g. iOS 18.2, Android 15
+      placeholder: "iOS 18.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: device-type
+    attributes:
+      label: Device / simulator
+      options:
+        - Simulator / emulator
+        - Physical device
+        - Both
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: launcher
+    attributes:
+      label: Android launcher (if Android)
+      description: Launchers handle alias switches differently, e.g. Pixel Launcher, One UI Home, Nova.
+      placeholder: "Pixel Launcher"
+    validations:
+      required: false
+  - type: textarea
+    id: config
+    attributes:
+      label: Icon config
+      description: Your `icon-switcher.config.ts` or Expo plugin options.
+      render: ts
+    validations:
+      required: true
+  - type: textarea
+    id: observed-result
+    attributes:
+      label: Observed result or error
+      description: What `set()` / `applyPending()` returned or threw (status, error code, message), plus native logs if any.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1. …
+        2. …
+    validations:
+      required: true
