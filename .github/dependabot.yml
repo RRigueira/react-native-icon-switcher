@@ -51,6 +51,33 @@ updates:
       - dependency-name: '@eslint/*'
         update-types:
           - version-update:semver-major
+      # Compiler, test and format toolchain: majors move with the React Native
+      # presets (@react-native/babel-preset, jest-preset, the RN CLI template),
+      # so they are upgraded by hand alongside a React Native upgrade.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@babel/*'
+        update-types:
+          - version-update:semver-major
+      - dependency-name: babel-jest
+        update-types:
+          - version-update:semver-major
+      - dependency-name: jest
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@types/jest'
+        update-types:
+          - version-update:semver-major
+      - dependency-name: prettier
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@react-native-community/cli*'
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@types/react'
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directories:
