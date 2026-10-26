@@ -218,6 +218,30 @@ describe('resolveConfig', () => {
     ).toThrow(/Default icon Android path conflicts/);
   });
 
+  it('does not warn when Expo and config default Android paths match', () => {
+    const cfg = resolveConfig(
+      {
+        default: {
+          android: {
+            foreground: FIXTURE,
+            background: '#FFFFFF',
+          },
+        },
+        icons: { halloween: FIXTURE },
+      },
+      {
+        projectRoot: PROJECT_ROOT,
+        expoDefault: {
+          android: {
+            foreground: FIXTURE,
+            background: '#FFFFFF',
+          },
+        },
+      }
+    );
+    expect(cfg.icons).toHaveLength(2);
+  });
+
   it('ignores hex colour strings when validating image paths', () => {
     const cfg = resolveConfig(
       {
@@ -232,6 +256,22 @@ describe('resolveConfig', () => {
       { projectRoot: PROJECT_ROOT }
     );
     expect(cfg.icons[0].android).toMatchObject({ background: '#AABBCC' });
+  });
+
+  it('skips undefined optional icon entries in the config record', () => {
+    const cfg = resolveConfig(
+      {
+        icons: {
+          halloween: FIXTURE,
+          ghost: undefined,
+        },
+      },
+      { projectRoot: PROJECT_ROOT }
+    );
+    expect(cfg.icons.map((icon) => icon.name)).toEqual([
+      'default',
+      'halloween',
+    ]);
   });
 
   it('lists every missing file in one ConfigError', () => {

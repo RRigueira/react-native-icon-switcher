@@ -67,6 +67,55 @@ beforeEach(() => {
 });
 
 describe('syncIcon', () => {
+  it('returns without calling set when fetchChoice is empty', async () => {
+    await syncIcon({ fetchChoice: async () => '' });
+    expect(mockNativeState.setCalls).toHaveLength(0);
+  });
+
+  it('returns without calling set when fetchChoice is null', async () => {
+    await syncIcon({ fetchChoice: async () => null });
+    expect(mockNativeState.setCalls).toHaveLength(0);
+  });
+
+  it('returns without calling set when the native module is unsupported', async () => {
+    mockNativeState.isSupported = false;
+    await syncIcon({ fetchChoice: async () => 'halloween' });
+    expect(mockNativeState.setCalls).toHaveLength(0);
+  });
+
+  it('does not block set when lastFailed names a different icon', async () => {
+    const storage = createRecordingStorage();
+    await storage.setItem(
+      'icon-switcher:lastFailed',
+      JSON.stringify({ name: 'default', at: Date.now() })
+    );
+    const fetchChoice = jest.fn(async () => 'halloween');
+    await syncIcon({ fetchChoice, storage, retryAfterMs: 60_000 });
+    expect(mockNativeState.setCalls).toEqual(['halloween']);
+  });
+
+  it('decodes legacy plain-text lastFailed values', async () => {
+    const storage = createRecordingStorage();
+    await storage.setItem('icon-switcher:lastFailed', 'halloween');
+    mockNativeState.setImpl = async () => {
+      throw Object.assign(new Error('fail'), { code: 'ERR_OS_REJECTED' });
+    };
+    await syncIcon({
+      fetchChoice: async () => 'halloween',
+      storage,
+      retryAfterMs: 60_000,
+    });
+    expect(mockNativeState.setCalls).toEqual(['halloween']);
+  });
+
+  it('ignores malformed lastFailed storage payloads', async () => {
+    const storage = createRecordingStorage();
+    await storage.setItem('icon-switcher:lastFailed', '{"wrong":true}');
+    const fetchChoice = jest.fn(async () => 'halloween');
+    await syncIcon({ fetchChoice, storage });
+    expect(mockNativeState.setCalls).toEqual(['halloween']);
+  });
+
   it('ignores unknown icon names without calling native set', async () => {
     const fetchChoice = jest.fn(async () => 'unknown_remote');
     await syncIcon({ fetchChoice });
@@ -168,6 +217,17 @@ describe('syncIcon', () => {
 
     resolveSet?.();
     await _flushAsync();
+  });
+
+  it('returns a cleanup function that unsubscribes AppState listeners', async () => {
+    const rn = jest.requireMock('react-native') as {
+      AppState: { __clearListeners?: () => void };
+    };
+    const fetchChoice = jest.fn(async () => 'halloween');
+    const cleanup = await syncIcon({ fetchChoice });
+    expect(typeof cleanup).toBe('function');
+    cleanup();
+    rn.AppState.__clearListeners?.();
   });
 
   it('on iOS waits for active AppState before calling set', async () => {

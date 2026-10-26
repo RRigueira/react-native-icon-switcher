@@ -93,6 +93,7 @@
     "@expo/config-plugins": "^58.0.10",
     "@expo/plist": "^0.10.1",
     "jiti": "^2.7.0",
+    "sax": "^1.6.1",
     "sharp": "^0.35.5",
     "xcode": "^4.0.0"
   },
@@ -111,6 +112,7 @@
     "@types/node": "^26.6.3",
     "@types/react": "^19.2.0",
     "@types/react-test-renderer": "^19",
+    "@types/sax": "^1.2.7",
     "del-cli": "^8.0.1",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",

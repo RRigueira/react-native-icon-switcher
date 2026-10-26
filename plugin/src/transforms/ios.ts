@@ -2,8 +2,6 @@ import type { XcodeProject } from 'xcode';
 
 import type { ResolvedConfig } from '../types';
 
-const PRIMARY_ICON_NAME = 'AppIcon';
-
 export function applyInfoPlist(
   plist: Record<string, unknown>,
   cfg: ResolvedConfig
@@ -13,76 +11,29 @@ export function applyInfoPlist(
   next.IconSwitcherIcons = cfg.icons
     .filter((icon) => icon.isDefault || icon.ios !== null)
     .map((icon) => icon.name);
-  next.CFBundleIcons = _ensurePrimaryIconBundle(
-    next.CFBundleIcons,
-    'CFBundleIcons'
-  );
 
-  if (_supportsIpad(next)) {
-    next['CFBundleIcons~ipad'] = _mirrorIpadIcons(
-      next.CFBundleIcons,
-      next['CFBundleIcons~ipad']
-    );
+  if (_isLegacy01PrimaryIconBundle(next.CFBundleIcons)) {
+    delete next.CFBundleIcons;
+  }
+  if (_isLegacy01PrimaryIconBundle(next['CFBundleIcons~ipad'])) {
+    delete next['CFBundleIcons~ipad'];
   }
 
   return next;
 }
 
-function _ensurePrimaryIconBundle(
-  existing: unknown,
-  label: string
-): Record<string, unknown> {
-  const bundle =
-    existing && typeof existing === 'object' && !Array.isArray(existing)
-      ? { ...(existing as Record<string, unknown>) }
-      : {};
-
-  const primary =
-    bundle.CFBundlePrimaryIcon && typeof bundle.CFBundlePrimaryIcon === 'object'
-      ? { ...(bundle.CFBundlePrimaryIcon as Record<string, unknown>) }
-      : {};
-
-  const currentName = primary.CFBundleIconName;
-  if (currentName !== undefined && currentName !== PRIMARY_ICON_NAME) {
-    console.warn(
-      `[react-native-icon-switcher] ${label}.CFBundlePrimaryIcon.CFBundleIconName is "${String(currentName)}"; expected "${PRIMARY_ICON_NAME}" — leaving unchanged`
-    );
-  } else {
-    primary.CFBundleIconName = PRIMARY_ICON_NAME;
+export function _isLegacy01PrimaryIconBundle(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
   }
-
-  bundle.CFBundlePrimaryIcon = primary;
-  return bundle;
-}
-
-function _supportsIpad(plist: Record<string, unknown>): boolean {
-  const families = plist.UIDeviceFamily;
-  if (
-    Array.isArray(families) &&
-    families.some((value) => value === 2 || value === '2')
-  ) {
-    return true;
+  const bundle = value as Record<string, unknown>;
+  const primary = bundle.CFBundlePrimaryIcon;
+  if (!primary || typeof primary !== 'object' || Array.isArray(primary)) {
+    return false;
   }
-  return plist['UISupportedInterfaceOrientations~ipad'] !== undefined;
-}
-
-function _mirrorIpadIcons(
-  phoneIcons: unknown,
-  existingIpad: unknown
-): Record<string, unknown> {
-  const phone =
-    phoneIcons && typeof phoneIcons === 'object' && !Array.isArray(phoneIcons)
-      ? (phoneIcons as Record<string, unknown>)
-      : {};
-  const ipad =
-    existingIpad &&
-    typeof existingIpad === 'object' &&
-    !Array.isArray(existingIpad)
-      ? { ...(existingIpad as Record<string, unknown>) }
-      : {};
-
-  ipad.CFBundlePrimaryIcon = phone.CFBundlePrimaryIcon;
-  return ipad;
+  const primaryIcon = primary as Record<string, unknown>;
+  const keys = Object.keys(primaryIcon);
+  return keys.length === 1 && primaryIcon.CFBundleIconName === 'AppIcon';
 }
 
 export function applyXcodeProject(
@@ -101,10 +52,16 @@ export function applyXcodeProject(
   );
 
   for (const [, configuration] of buildConfigurations) {
-    configuration.buildSettings.ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES =
+    const settings = configuration.buildSettings;
+    const configName = configuration.name ?? settings.PRODUCT_NAME ?? 'unknown';
+    if (!settings.ASSETCATALOG_COMPILER_APPICON_NAME) {
+      console.warn(
+        `[react-native-icon-switcher] Build configuration "${String(configName)}" has no ASSETCATALOG_COMPILER_APPICON_NAME — set the primary app icon in Xcode`
+      );
+    }
+    settings.ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES =
       _formatAlternateAppIconNamesSetting(alternateNames);
-    configuration.buildSettings.ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS =
-      'NO';
+    settings.ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = 'NO';
   }
 
   return project;
@@ -122,7 +79,7 @@ function _formatAlternateAppIconNamesSetting(raw: string): string {
 
 function _findFirstApplicationTarget(
   project: XcodeProject
-): [string, { buildConfigurationList: string }] {
+): [string, { buildConfigurationList: string; name?: string }] {
   const section = project.pbxNativeTargetSection();
   for (const [key, value] of Object.entries(section)) {
     if (key.endsWith('_comment')) {
@@ -131,6 +88,7 @@ function _findFirstApplicationTarget(
     const target = value as {
       productType?: string;
       buildConfigurationList: string;
+      name?: string;
     };
     const productType = _unquote(String(target.productType ?? ''));
     if (productType === 'com.apple.product-type.application') {
@@ -143,7 +101,10 @@ function _findFirstApplicationTarget(
 function _getBuildConfigurationsForListId(
   project: XcodeProject,
   configurationListId: string
-): [string, { buildSettings: Record<string, string | undefined> }][] {
+): [
+  string,
+  { name?: string; buildSettings: Record<string, string | undefined> },
+][] {
   const lists = project.pbxXCConfigurationList();
   const list = lists[configurationListId] as {
     buildConfigurations?: { value: string }[];
@@ -155,9 +116,12 @@ function _getBuildConfigurationsForListId(
     if (key.endsWith('_comment')) {
       return false;
     }
-    const item = value as { isa?: string };
+    const item = value as { isa?: string; name?: string };
     return item.isa === 'XCBuildConfiguration' && ids.includes(key);
-  }) as [string, { buildSettings: Record<string, string | undefined> }][];
+  }) as [
+    string,
+    { name?: string; buildSettings: Record<string, string | undefined> },
+  ][];
 }
 
 function _unquote(value: string): string {

@@ -5,11 +5,6 @@ exports[`applyInfoPlist matches snapshot after transform 1`] = `
   "CADisableMinimumFrameDurationOnPhone": true,
   "CFBundleDevelopmentRegion": "$(DEVELOPMENT_LANGUAGE)",
   "CFBundleExecutable": "$(EXECUTABLE_NAME)",
-  "CFBundleIcons": {
-    "CFBundlePrimaryIcon": {
-      "CFBundleIconName": "AppIcon",
-    },
-  },
   "CFBundleIdentifier": "$(PRODUCT_BUNDLE_IDENTIFIER)",
   "CFBundleInfoDictionaryVersion": "6.0",
   "CFBundleName": "$(PRODUCT_NAME)",

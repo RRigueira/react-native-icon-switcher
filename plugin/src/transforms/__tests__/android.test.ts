@@ -163,6 +163,23 @@ describe('applyAndroidManifest', () => {
     );
   });
 
+  it('preserves custom attributes on refreshed marked activity-alias entries', async () => {
+    const manifest = await loadStockManifest();
+    const once = applyAndroidManifest(manifest, sampleConfig);
+    const application = once.manifest.application?.[0];
+    const alias = application?.['activity-alias']?.find(
+      (entry) => entry.$?.['android:name'] === '.IconSwitcher_halloween'
+    );
+    if (alias?.$) {
+      alias.$['android:label'] = '@string/halloween';
+    }
+    const twice = applyAndroidManifest(deepClone(once), sampleConfig);
+    const refreshed = twice.manifest.application?.[0]?.['activity-alias']?.find(
+      (entry) => entry.$?.['android:name'] === '.IconSwitcher_halloween'
+    );
+    expect(refreshed?.$?.['android:label']).toBe('@string/halloween');
+  });
+
   it('resolves launcher activity via default IconSwitcher alias target', async () => {
     const manifest = await loadStockManifest();
     const application = manifest.manifest.application?.[0];
@@ -244,6 +261,143 @@ describe('applyAndroidManifest', () => {
 
     expect(() => applyAndroidManifest(manifest, sampleConfig)).toThrow(
       /Unrecognized category/
+    );
+  });
+
+  it('resolves launcher activity via .MainActivity when MAIN/LAUNCHER is absent', async () => {
+    const manifest = await loadStockManifest();
+    const application = manifest.manifest.application?.[0];
+    for (const activity of application?.activity ?? []) {
+      activity['intent-filter'] = (activity['intent-filter'] ?? []).filter(
+        (filter) =>
+          !(filter.action ?? []).some(
+            (action) =>
+              action.$?.['android:name'] === 'android.intent.action.MAIN'
+          )
+      );
+    }
+    const result = applyAndroidManifest(manifest, sampleConfig);
+    const aliases = result.manifest.application?.[0]?.['activity-alias'] ?? [];
+    expect(
+      aliases.some(
+        (alias) => alias.$?.['android:targetActivity'] === '.MainActivity'
+      )
+    ).toBe(true);
+  });
+
+  it('ignores categories without android:name in launcher filters', async () => {
+    const manifest = await loadStockManifest();
+    const main = manifest.manifest.application?.[0]?.activity?.find(
+      (activity) => activity.$?.['android:name'] === '.MainActivity'
+    );
+    const launcher = (main?.['intent-filter'] ?? []).find((filter) =>
+      (filter.action ?? []).some(
+        (action) => action.$?.['android:name'] === 'android.intent.action.MAIN'
+      )
+    );
+    launcher?.category?.push({ $: {} });
+    expect(() => applyAndroidManifest(manifest, sampleConfig)).not.toThrow();
+  });
+
+  it('ignores marked aliases whose icon meta-data has no value', async () => {
+    const manifest = await loadStockManifest();
+    const application = manifest.manifest.application?.[0];
+    application!['activity-alias'] = [
+      {
+        '$': {
+          'android:name': '.IconSwitcher_stale',
+          'android:targetActivity': '.MainActivity',
+          'android:exported': 'true',
+        },
+        'meta-data': [
+          {
+            $: {
+              'android:name': 'com.iconswitcher.icon',
+            },
+          },
+        ],
+      },
+    ];
+    const result = applyAndroidManifest(manifest, sampleConfig);
+    expect(
+      (result.manifest.application?.[0]?.['activity-alias'] ?? []).some(
+        (alias) => alias.$?.['android:name'] === '.IconSwitcher_stale'
+      )
+    ).toBe(true);
+  });
+
+  it('ignores launcher intent-filter actions without android:name', async () => {
+    const manifest = await loadStockManifest();
+    const main = manifest.manifest.application?.[0]?.activity?.find(
+      (activity) => activity.$?.['android:name'] === '.MainActivity'
+    );
+    const launcher = (main?.['intent-filter'] ?? []).find((filter) =>
+      (filter.action ?? []).some(
+        (action) => action.$?.['android:name'] === 'android.intent.action.MAIN'
+      )
+    );
+    launcher?.action?.push({ $: {} });
+    const result = applyAndroidManifest(manifest, sampleConfig);
+    expect(result.manifest.application?.[0]?.activity?.[0]).toBeDefined();
+  });
+
+  it('does not treat activity-alias without icon marker as managed', async () => {
+    const manifest = await loadStockManifest();
+    const application = manifest.manifest.application?.[0];
+    application!['activity-alias'] = [
+      {
+        $: {
+          'android:name': '.IconSwitcher_orphan',
+          'android:targetActivity': '.MainActivity',
+          'android:exported': 'true',
+        },
+      },
+    ];
+    const result = applyAndroidManifest(manifest, sampleConfig);
+    expect(
+      (result.manifest.application?.[0]?.['activity-alias'] ?? []).some(
+        (alias) => alias.$?.['android:name'] === '.IconSwitcher_orphan'
+      )
+    ).toBe(true);
+  });
+
+  it('resolves launcher via default alias when MAIN activity has no android:name', async () => {
+    const manifest = await loadStockManifest();
+    const application = manifest.manifest.application?.[0];
+    for (const activity of application?.activity ?? []) {
+      activity['intent-filter'] = (activity['intent-filter'] ?? []).filter(
+        (filter) =>
+          !(filter.action ?? []).some(
+            (action) =>
+              action.$?.['android:name'] === 'android.intent.action.MAIN'
+          )
+      );
+    }
+    const main = application?.activity?.find(
+      (activity) => activity.$?.['android:name'] === '.MainActivity'
+    );
+    if (main?.$) {
+      delete main.$['android:name'];
+    }
+    application!['activity-alias'] = [
+      {
+        '$': {
+          'android:name': '.IconSwitcher_default',
+          'android:targetActivity': '.MainActivity',
+          'android:exported': 'true',
+        },
+        'meta-data': [
+          {
+            $: {
+              'android:name': 'com.iconswitcher.icon',
+              'android:value': 'default',
+            },
+          },
+        ],
+      },
+    ];
+    expect(() => applyAndroidManifest(manifest, sampleConfig)).toThrow(
+      /launcher activity/i
     );
   });
 

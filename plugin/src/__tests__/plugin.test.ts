@@ -17,14 +17,20 @@ jest.mock('../core/validate', () => ({
   resolveConfig: (cfg: unknown, ctx: unknown) => mockResolveConfig(cfg, ctx),
 }));
 
+const mockPlanAssets = jest.fn(() => ({ assets: [] }));
+const mockWriteAssets = jest.fn(async () => []);
+
 jest.mock('../core/assets', () => ({
-  planAssets: jest.fn(() => ({ assets: [] })),
-  writeAssets: jest.fn(async () => []),
+  planAssets: (...args: unknown[]) => mockPlanAssets(...args),
+  writeAssets: (...args: unknown[]) => mockWriteAssets(...args),
 }));
 
 describe('withIconSwitcher building blocks', () => {
   beforeEach(() => {
     mockResolveConfig.mockClear();
+    mockPlanAssets.mockReset();
+    mockPlanAssets.mockReturnValue({ assets: [] });
+    mockWriteAssets.mockClear();
   });
 
   it('wires transform helpers used by the plugin', () => {
@@ -160,6 +166,36 @@ describe('withIconSwitcher building blocks', () => {
     });
   });
 
+  it('does not inject CFBundleIcons via applyInfoPlist', () => {
+    const plist = applyInfoPlist(
+      { CFBundleName: 'Example' },
+      sampleConfig
+    ) as Record<string, unknown>;
+    expect(plist.IconSwitcherIcons).toEqual(['default', 'halloween']);
+    expect(plist.CFBundleIcons).toBeUndefined();
+  });
+
+  it('runs Android and iOS mods in one compileModsAsync call', async () => {
+    const withIconSwitcher = require('../index').default;
+    const projectRoot = path.join(__dirname, '..');
+    const config = withPlugins(
+      {
+        name: 'test',
+        slug: 'test',
+        version: '1.0.0',
+        _internal: { projectRoot, isDebug: false },
+      },
+      [[withIconSwitcher, { icons: { halloween: 'icons/halloween.png' } }]]
+    );
+
+    await compileModsAsync(config, {
+      projectRoot,
+      platforms: ['android', 'ios'],
+      introspect: true,
+    });
+    expect(mockResolveConfig.mock.calls.length).toBeGreaterThan(0);
+  });
+
   it('runs iOS plist and Xcode mods', async () => {
     const withIconSwitcher = require('../index').default;
     const projectRoot = path.join(__dirname, '..');
@@ -210,6 +246,81 @@ describe('withIconSwitcher building blocks', () => {
 
     await compileModsAsync(config, { projectRoot, platforms: ['android'] });
     expect(fs.statSync(typesPath).mtimeMs).toBe(beforeMtime);
+  });
+
+  it('filters asset plans to Android outputs in the Android dangerous mod', async () => {
+    mockPlanAssets.mockReturnValue({
+      assets: [
+        { relativePath: 'AppIcon.appiconset/icon.png' },
+        { relativePath: 'mipmap-mdpi/ic_launcher.png' },
+      ],
+    });
+    const withIconSwitcher = require('../index').default;
+    const projectRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'icon-switcher-filter-')
+    );
+    const manifestDir = path.join(projectRoot, 'android/app/src/main');
+    fs.mkdirSync(manifestDir, { recursive: true });
+    fs.copyFileSync(
+      path.join(__dirname, '../__fixtures__/manifests/AndroidManifest.xml'),
+      path.join(manifestDir, 'AndroidManifest.xml')
+    );
+
+    const config = withPlugins(
+      {
+        name: 'test',
+        slug: 'test',
+        version: '1.0.0',
+        _internal: { projectRoot, isDebug: false },
+      },
+      [[withIconSwitcher, { icons: { halloween: 'icons/halloween.png' } }]]
+    );
+
+    await compileModsAsync(config, { projectRoot, platforms: ['android'] });
+    expect(mockWriteAssets).toHaveBeenCalled();
+    const androidPlan = mockWriteAssets.mock.calls[0]?.[0] as {
+      assets: { relativePath: string }[];
+    };
+    expect(androidPlan.assets).toHaveLength(1);
+    expect(androidPlan.assets[0]?.relativePath).toContain('mipmap');
+  });
+
+  it('filters asset plans to iOS outputs in the iOS dangerous mod', async () => {
+    mockPlanAssets.mockReturnValue({
+      assets: [
+        { relativePath: 'AppIcon.appiconset/icon.png' },
+        { relativePath: 'mipmap-mdpi/ic_launcher.png' },
+      ],
+    });
+    const { __setGetIosSourceRootForTests } = require('../index');
+    const withIconSwitcher = require('../index').default;
+    const projectRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'icon-switcher-filter-ios-')
+    );
+    fs.cpSync(
+      path.join(__dirname, '../__fixtures__/bare-project'),
+      projectRoot,
+      { recursive: true }
+    );
+    __setGetIosSourceRootForTests(() => path.join(projectRoot, 'ios/Fixture'));
+
+    const config = withPlugins(
+      {
+        name: 'test',
+        slug: 'test',
+        version: '1.0.0',
+        _internal: { projectRoot, isDebug: false },
+      },
+      [[withIconSwitcher, { icons: { halloween: 'icons/halloween.png' } }]]
+    );
+
+    await compileModsAsync(config, { projectRoot, platforms: ['ios'] });
+    __setGetIosSourceRootForTests(undefined);
+    const iosPlan = mockWriteAssets.mock.calls[0]?.[0] as {
+      assets: { relativePath: string }[];
+    };
+    expect(iosPlan.assets).toHaveLength(1);
+    expect(iosPlan.assets[0]?.relativePath).toContain('.appiconset');
   });
 
   it('writes icon-switcher.d.ts from the Android dangerous mod', async () => {

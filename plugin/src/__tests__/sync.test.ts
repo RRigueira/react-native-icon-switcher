@@ -104,7 +104,14 @@ describe('react-native-icon-switcher sync', () => {
       'android/app/src/main/AndroidManifest.xml'
     );
     const xml = await fs.readFile(manifestPath, 'utf8');
-    await fs.writeFile(manifestPath, `${xml}\n`, 'utf8');
+    await fs.writeFile(
+      manifestPath,
+      xml.replace(
+        'com.iconswitcher.icons',
+        'com.iconswitcher.icons.hand-edited'
+      ),
+      'utf8'
+    );
     const code = await run(['sync', '--check', '--project-root', projectDir]);
     expect(code).toBe(1);
   });

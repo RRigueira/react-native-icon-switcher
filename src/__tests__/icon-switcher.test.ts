@@ -2,6 +2,7 @@ jest.mock('../NativeIconSwitcher', () =>
   jest.requireActual('../__mocks__/NativeIconSwitcher')
 );
 
+import native from '../NativeIconSwitcher';
 import IconSwitcher, { IconSwitcherError } from '../index';
 import {
   mockNativeState,
@@ -67,6 +68,24 @@ describe('IconSwitcher.set', () => {
   it('reset calls set with default', async () => {
     await IconSwitcher.reset();
     expect(mockNativeState.setCalls).toEqual(['default']);
+  });
+});
+
+describe('IconSwitcher.getCurrent', () => {
+  it('returns the native icon name', async () => {
+    mockNativeState.current = 'halloween';
+    await expect(IconSwitcher.getCurrent()).resolves.toBe('halloween');
+  });
+
+  it('maps native failures through mapNativeError', async () => {
+    const err = new Error('native');
+    (err as Error & { code: string }).code = 'ERR_UNKNOWN_ICON';
+    jest
+      .spyOn(native as NonNullable<typeof native>, 'getCurrent')
+      .mockRejectedValueOnce(err);
+    await expect(IconSwitcher.getCurrent()).rejects.toMatchObject({
+      code: 'unknown_icon',
+    });
   });
 });
 

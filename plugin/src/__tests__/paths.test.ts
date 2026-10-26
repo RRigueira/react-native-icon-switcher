@@ -18,6 +18,22 @@ async function _copyBare(): Promise<string> {
 }
 
 describe('locateNativePaths', () => {
+  it('resolves quoted INFOPLIST_FILE paths', async () => {
+    const projectDir = await _copyBare();
+    const pbxPath = path.join(
+      projectDir,
+      'ios/Fixture.xcodeproj/project.pbxproj'
+    );
+    let text = await fs.readFile(pbxPath, 'utf8');
+    text = text.replace(
+      /INFOPLIST_FILE = Fixture\/Info\.plist;/g,
+      'INFOPLIST_FILE = "Fixture/Info.plist";'
+    );
+    await fs.writeFile(pbxPath, text);
+    const paths = locateNativePaths(projectDir);
+    expect(paths.infoPlistPath).toContain('Fixture/Info.plist');
+  });
+
   it('resolves paths for a standard bare React Native layout', async () => {
     const projectDir = await _copyBare();
     const paths = locateNativePaths(projectDir);
@@ -96,6 +112,32 @@ describe('locateNativePaths', () => {
     );
   });
 
+  it('throws when every xcodeproj lacks an application target', async () => {
+    const projectDir = await _copyBare();
+    const pbxPath = path.join(
+      projectDir,
+      'ios/Fixture.xcodeproj/project.pbxproj'
+    );
+    let text = await fs.readFile(pbxPath, 'utf8');
+    text = text.replace(
+      /com\.apple\.product-type\.application/g,
+      'com.apple.product-type.app-extension'
+    );
+    await fs.writeFile(pbxPath, text);
+    await expect(() => locateNativePaths(projectDir)).toThrow(
+      /application target/
+    );
+  });
+
+  it('ignores xcodeproj folders that have no project.pbxproj file', async () => {
+    const projectDir = await _copyBare();
+    await fs.mkdir(path.join(projectDir, 'ios/Empty.xcodeproj'), {
+      recursive: true,
+    });
+    const paths = locateNativePaths(projectDir);
+    expect(paths.xcodeprojPath).toContain('Fixture.xcodeproj');
+  });
+
   it('skips xcodeproj folders without an application target', async () => {
     const projectDir = await _copyBare();
     const extOnlyDir = path.join(projectDir, 'ios/ExtensionOnly.xcodeproj');
@@ -112,6 +154,23 @@ describe('locateNativePaths', () => {
     );
     const paths = locateNativePaths(projectDir);
     expect(paths.xcodeprojPath).toContain('Fixture.xcodeproj');
+  });
+
+  it('throws when build configuration list is empty', async () => {
+    const projectDir = await _copyBare();
+    const pbxPath = path.join(
+      projectDir,
+      'ios/Fixture.xcodeproj/project.pbxproj'
+    );
+    let text = await fs.readFile(pbxPath, 'utf8');
+    text = text.replace(
+      /buildConfigurations = \(\s*[^)]+\);/,
+      'buildConfigurations = ();'
+    );
+    await fs.writeFile(pbxPath, text);
+    await expect(() => locateNativePaths(projectDir)).toThrow(
+      /build configurations/
+    );
   });
 
   it('throws when two xcodeproj folders both have app targets', async () => {

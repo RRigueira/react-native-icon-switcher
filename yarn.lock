@@ -4912,6 +4912,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/sax@npm:^1.2.7":
+  version: 1.2.7
+  resolution: "@types/sax@npm:1.2.7"
+  dependencies:
+    "@types/node": "npm:*"
+  checksum: 10c0/d077a761a0753b079bf8279b3993948030ca86ed9125437b9b29c1de40db9b2deb7fddc369f014b58861d450e8b8cc75f163aa29dc8cea81952efbfd859168cf
+  languageName: node
+  linkType: hard
+
 "@types/stack-utils@npm:^2.0.0, @types/stack-utils@npm:^2.0.3":
   version: 2.0.3
   resolution: "@types/stack-utils@npm:2.0.3"
@@ -12747,6 +12756,7 @@ __metadata:
     "@types/node": "npm:^26.6.3"
     "@types/react": "npm:^19.2.0"
     "@types/react-test-renderer": "npm:^19"
+    "@types/sax": "npm:^1.2.7"
     del-cli: "npm:^8.0.1"
     eslint: "npm:^9.39.5"
     eslint-config-prettier: "npm:^10.1.8"
@@ -12762,6 +12772,7 @@ __metadata:
     react-native-builder-bob: "npm:^0.44.1"
     react-test-renderer: "npm:19.3.0"
     release-it: "npm:^21.1.1"
+    sax: "npm:^1.6.1"
     sharp: "npm:^0.35.5"
     turbo: "npm:^2.11.10"
     typescript: "npm:^6.0.3"
@@ -13279,7 +13290,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sax@npm:>=0.6.0":
+"sax@npm:>=0.6.0, sax@npm:^1.6.1":
   version: 1.6.1
   resolution: "sax@npm:1.6.1"
   checksum: 10c0/c91a71043d60da50fdf1e2cee936fc7ad4c9376afb8d1022aef5655f279433640859ec06b3b49abfcbe578fc7da2828cc1661e45aaedf835f5393496193437fa

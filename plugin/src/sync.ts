@@ -2,15 +2,14 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { AndroidConfig, XML } from '@expo/config-plugins';
-import plist from '@expo/plist';
 import xcode from 'xcode';
 
 import { planAssets, writeAssets } from './core/assets';
 import type { ResolvedConfig } from './types';
 import { resolveConfig } from './core/validate';
-import { applyAndroidManifest } from './transforms/android';
-import { applyInfoPlist, applyXcodeProject } from './transforms/ios';
+import { patchAndroidManifestText } from './transforms/android-text';
+import { applyXcodeProject } from './transforms/ios';
+import { patchInfoPlistText } from './transforms/plist-patch';
 import { renderTypes } from './transforms/types';
 import { loadIconSwitcherConfig, resolveConfigPath } from './load-config';
 import { locateNativePaths } from './paths';
@@ -138,20 +137,14 @@ async function _syncAndroidManifest(
   driftedPaths: string[]
 ): Promise<'updated' | 'unchanged'> {
   const xml = await fs.readFile(manifestPath, 'utf8');
-  const parsed = (await XML.parseXMLAsync(
-    xml
-  )) as AndroidConfig.Manifest.AndroidManifest;
-  const next = applyAndroidManifest(parsed, resolved);
-  const nextXml = XML.format(next);
-  const nextBuf = Buffer.from(nextXml, 'utf8');
-  const existing = await _readFileIfExists(manifestPath);
-  if (existing !== null && existing.equals(nextBuf)) {
-    return _recordOutcome(projectRoot, manifestPath, 'unchanged', driftedPaths);
-  }
-  if (!check) {
-    await AndroidConfig.Manifest.writeAndroidManifestAsync(manifestPath, next);
-  }
-  return _recordOutcome(projectRoot, manifestPath, 'updated', driftedPaths);
+  const nextXml = patchAndroidManifestText(xml, resolved);
+  const outcome = await _applyFileChange(
+    projectRoot,
+    manifestPath,
+    nextXml,
+    check
+  );
+  return _recordOutcome(projectRoot, manifestPath, outcome, driftedPaths);
 }
 
 async function _syncInfoPlist(
@@ -162,9 +155,7 @@ async function _syncInfoPlist(
   driftedPaths: string[]
 ): Promise<'updated' | 'unchanged'> {
   const raw = await fs.readFile(infoPlistPath, 'utf8');
-  const parsed = plist.parse(raw) as Record<string, unknown>;
-  const next = applyInfoPlist(parsed, resolved);
-  const nextXml = plist.build(next);
+  const nextXml = patchInfoPlistText(raw, resolved);
   const outcome = await _applyFileChange(
     projectRoot,
     infoPlistPath,

@@ -6,7 +6,11 @@ import plist from '@expo/plist';
 import xcode from 'xcode';
 
 import type { ResolvedConfig } from '../../types';
-import { applyInfoPlist, applyXcodeProject } from '../ios';
+import {
+  _isLegacy01PrimaryIconBundle,
+  applyInfoPlist,
+  applyXcodeProject,
+} from '../ios';
 import { sampleConfig } from '../sampleConfigs';
 
 const plistPath = path.join(__dirname, '../../__fixtures__/plists/Info.plist');
@@ -62,42 +66,43 @@ describe('applyInfoPlist', () => {
     expect(result.CFBundleAlternateIcons).toBeUndefined();
   });
 
-  it('mirrors phone icons onto CFBundleIcons~ipad when iPad is supported', () => {
+  it('removes legacy 0.1.x CFBundleIcons primary AppIcon shape', () => {
     const plistInput = {
       ...loadStockPlist(),
-      UIDeviceFamily: [1, 2],
+      'CFBundleIcons': {
+        CFBundlePrimaryIcon: { CFBundleIconName: 'AppIcon' },
+      },
+      'CFBundleIcons~ipad': {
+        CFBundlePrimaryIcon: { CFBundleIconName: 'AppIcon' },
+      },
     };
     const result = applyInfoPlist(plistInput, sampleConfig);
-    const ipad = result['CFBundleIcons~ipad'] as Record<string, unknown>;
-    const phone = result.CFBundleIcons as Record<string, unknown>;
-    expect(ipad.CFBundlePrimaryIcon).toEqual(phone.CFBundlePrimaryIcon);
+    expect(result.CFBundleIcons).toBeUndefined();
+    expect(result['CFBundleIcons~ipad']).toBeUndefined();
+    expect(result.IconSwitcherIcons).toEqual(['default', 'halloween']);
   });
 
-  it('detects iPad support via UISupportedInterfaceOrientations~ipad', () => {
-    const plistInput = {
-      ...loadStockPlist(),
-      'UISupportedInterfaceOrientations~ipad': [
-        'UIInterfaceOrientationPortrait',
-      ],
-    };
-    const result = applyInfoPlist(plistInput, sampleConfig);
-    expect(result['CFBundleIcons~ipad']).toBeDefined();
+  it('does not treat arbitrary CFBundleIcons shapes as legacy', () => {
+    expect(_isLegacy01PrimaryIconBundle(null)).toBe(false);
+    expect(_isLegacy01PrimaryIconBundle({ extra: true })).toBe(false);
+    expect(
+      _isLegacy01PrimaryIconBundle({
+        CFBundlePrimaryIcon: { CFBundleIconName: 'AppIcon', extra: true },
+      })
+    ).toBe(false);
   });
 
-  it('warns and leaves a mismatched CFBundleIconName unchanged', () => {
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  it('keeps non-legacy CFBundleIcons content untouched', () => {
     const plistInput = {
       ...loadStockPlist(),
       CFBundleIcons: {
-        CFBundlePrimaryIcon: { CFBundleIconName: 'LegacyIcon' },
+        CFBundlePrimaryIcon: { CFBundleIconName: 'AppIcon.dev' },
       },
     };
     const result = applyInfoPlist(plistInput, sampleConfig);
     const primary = (result.CFBundleIcons as Record<string, unknown>)
       .CFBundlePrimaryIcon as Record<string, unknown>;
-    expect(primary.CFBundleIconName).toBe('LegacyIcon');
-    expect(warn.mock.calls[0]?.[0]).toContain('LegacyIcon');
-    warn.mockRestore();
+    expect(primary.CFBundleIconName).toBe('AppIcon.dev');
   });
 });
 
@@ -162,6 +167,28 @@ describe('applyXcodeProject', () => {
     expect(reparsed.writeSync()).toBe(text);
   });
 
+  it('warns when a build configuration has no ASSETCATALOG_COMPILER_APPICON_NAME', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const project = loadStockProject();
+    const section = project.pbxXCBuildConfigurationSection();
+    for (const [key, value] of Object.entries(section)) {
+      if (key.endsWith('_comment')) {
+        continue;
+      }
+      const item = value as { buildSettings?: Record<string, string> };
+      if (item.buildSettings) {
+        delete item.buildSettings.ASSETCATALOG_COMPILER_APPICON_NAME;
+      }
+    }
+    applyXcodeProject(project, sampleConfig);
+    expect(
+      warn.mock.calls.some((call) =>
+        String(call[0]).includes('ASSETCATALOG_COMPILER_APPICON_NAME')
+      )
+    ).toBe(true);
+    warn.mockRestore();
+  });
+
   it('throws when the Xcode project has no application target', () => {
     const project = loadStockProject();
     const section = project.pbxNativeTargetSection();
@@ -195,6 +222,47 @@ describe('applyXcodeProject', () => {
         ''
       );
     }
+  });
+
+  it('uses PRODUCT_NAME in warnings when build configuration name is missing', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const project = loadStockProject();
+    const section = project.pbxXCBuildConfigurationSection();
+    for (const [key, value] of Object.entries(section)) {
+      if (key.endsWith('_comment')) {
+        continue;
+      }
+      const item = value as {
+        name?: string;
+        buildSettings?: Record<string, string>;
+      };
+      if (item.buildSettings?.PRODUCT_NAME) {
+        delete item.name;
+        delete item.buildSettings.ASSETCATALOG_COMPILER_APPICON_NAME;
+      }
+    }
+    applyXcodeProject(project, sampleConfig);
+    expect(
+      warn.mock.calls.some((call) =>
+        String(call[0]).includes('ASSETCATALOG_COMPILER_APPICON_NAME')
+      )
+    ).toBe(true);
+    warn.mockRestore();
+  });
+
+  it('reads unquoted productType values from pbxproj targets', () => {
+    const project = loadStockProject();
+    const section = project.pbxNativeTargetSection();
+    for (const [key, value] of Object.entries(section)) {
+      if (key.endsWith('_comment')) {
+        continue;
+      }
+      const target = value as { productType?: string };
+      if (target.productType?.includes('application')) {
+        target.productType = 'com.apple.product-type.application';
+      }
+    }
+    expect(() => applyXcodeProject(project, sampleConfig)).not.toThrow();
   });
 
   it('omits icons without iOS art from plist and alternate build settings', () => {
