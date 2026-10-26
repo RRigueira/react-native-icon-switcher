@@ -1,5 +1,7 @@
 # Changelog
 
+## [0.1.1](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.0...v0.1.1) (2026-10-26)
+
 # 0.1.0 (2026-10-26)
 
 ### Features
