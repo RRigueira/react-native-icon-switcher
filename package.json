@@ -49,7 +49,8 @@
     "!**/__fixtures__",
     "!**/__mocks__",
     "!**/.*",
-    "!plugin/build/**/__tests__"
+    "!plugin/build/**/__tests__",
+    "!**/typetests"
   ],
   "scripts": {
     "example": "yarn workspace react-native-icon-switcher-example",
@@ -158,7 +159,8 @@
           "project": "tsconfig.build.json"
         }
       ]
-    ]
+    ],
+    "exclude": "**/{__tests__,__fixtures__,__mocks__,typetests}/**"
   },
   "codegenConfig": {
     "name": "IconSwitcherSpec",
