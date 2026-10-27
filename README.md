@@ -137,7 +137,9 @@ Icons with no art for a platform are omitted from that platform's generated outp
 
 **Android reserved names:** names may not be `round`, `foreground`, `background`, or `monochrome`, nor end in `_round`, `_foreground`, `_background`, or `_monochrome`.
 
-**Android adaptive icons:** layers are 108×108 dp, but launchers show only the central 72×72 dp and then mask it (circle, squircle, …). Keep logos and text inside that centre, about the middle two thirds of the image. A plain path (no `foreground` / `background`) is used as a legacy square icon. To fit artwork that fills its square, scale it into the centre of the `background` image on a matching colour and use a transparent `foreground`.
+**Android adaptive icons:** layers are 108×108 dp, but launchers show only the central 72×72 dp and then mask it (circle, squircle, …). Keep logos and text inside that centre, about the middle two thirds of the image. To fit artwork that fills its square, scale it into the centre of the `background` image on a matching colour and use a transparent `foreground`.
+
+**Legacy Android icons (API 24–25):** besides the adaptive layers and `mipmap-anydpi-v26` XML, `sync` and the plugin write `ic_launcher*.png` the way Android Studio's Image Asset tool does: the visible centre of an adaptive icon (72 dp of the 108 dp layers; a plain path uses the whole image) in a 38 dp rounded square or a 44 dp circle, with a soft drop shadow, on a transparent 48 dp canvas.
 
 **Variants (experimental):** iOS `dark` / `tinted` and Android `monochrome` (themed icons, Android 13+) are generated when set, but have not yet been verified on devices.
 
@@ -151,6 +153,10 @@ Icons with no art for a platform are omitted from that platform's generated outp
 | Types | `icon-switcher.d.ts` at the project root | same file |
 
 Xcode generates `CFBundleIcons` from the build settings, so the library does not write it. Other content in these files is left as it is: comments, formatting, and the quoting CocoaPods applies to the pbxproj, so `sync --check` stays clean after `pod install`. In bare apps, commit the generated files. With Expo prebuild, commit `icon-switcher.d.ts`; native folders follow your usual prebuild policy.
+
+**Managed iOS icon sets:** when `sync` or the plugin rewrites an `.appiconset` it owns, it deletes files in that folder that the new `Contents.json` does not reference (`sync --check` reports them). Other icon sets are left alone.
+
+**Generated images across machines:** image resampling rounds slightly differently on different CPUs (for example an Apple silicon Mac and x86 Linux CI). `sync` treats an existing PNG whose pixels differ from the regenerated one by at most 3 levels per channel as unchanged, so `sync --check` stays green and files are not rewritten.
 
 ## Usage
 

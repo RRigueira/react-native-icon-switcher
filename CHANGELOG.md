@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.5](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.4...v0.1.5) (2026-10-27)
+
+### Bug Fixes
+
+* **sync:** legacy Android icons like Android Studio; prune stale iOS icon files ([#8](https://github.com/RRigueira/react-native-icon-switcher/issues/8)) ([06589f4](https://github.com/RRigueira/react-native-icon-switcher/commit/06589f46ddea53b90b6b3f6c3a3e4554166a8391))
+
 ## [0.1.4](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.3...v0.1.4) (2026-10-27)
 
 ### Bug Fixes

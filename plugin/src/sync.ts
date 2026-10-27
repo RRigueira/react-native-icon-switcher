@@ -4,7 +4,12 @@ import path from 'node:path';
 
 import xcode from 'xcode';
 
-import { planAssets, writeAssets } from './core/assets';
+import {
+  planAssets,
+  pngsMatchWithinTolerance,
+  pruneStaleIosAppIconSets,
+  writeAssets,
+} from './core/assets';
 import type { ResolvedConfig } from './types';
 import { resolveConfig } from './core/validate';
 import { patchAndroidManifestText } from './transforms/android-text';
@@ -49,6 +54,14 @@ async function _applyFileChange(
   const nextBuf = typeof next === 'string' ? Buffer.from(next, 'utf8') : next;
   const existing = await _readFileIfExists(abs);
   if (existing !== null && existing.equals(nextBuf)) {
+    return 'unchanged';
+  }
+  // Keep a generated image that only differs by resampling rounding (for
+  // example made on another CPU), so --check passes and nothing is rewritten.
+  if (
+    existing !== null &&
+    (await pngsMatchWithinTolerance(existing, nextBuf))
+  ) {
     return 'unchanged';
   }
   if (check) {
@@ -121,6 +134,14 @@ async function _syncAssets(
       } else {
         unchanged += 1;
       }
+    }
+
+    const staleIos = await pruneStaleIosAppIconSets(iosAssetCatalog, plan, {
+      check,
+    });
+    for (const abs of staleIos) {
+      driftedPaths.push(_rel(projectRoot, abs));
+      updated += 1;
     }
   } finally {
     await fs.rm(tmpRoot, { recursive: true, force: true });
