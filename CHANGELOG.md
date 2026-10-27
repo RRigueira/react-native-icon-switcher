@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.4](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.3...v0.1.4) (2026-10-27)
+
+### Bug Fixes
+
+* **sync:** treat quoted and unquoted pbxproj values as equal ([89f9f3a](https://github.com/RRigueira/react-native-icon-switcher/commit/89f9f3a86debcba8ee9ca78ce24ef9c93b03564c))
+
 ## [0.1.3](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.2...v0.1.3) (2026-10-27)
 
 ### Bug Fixes
