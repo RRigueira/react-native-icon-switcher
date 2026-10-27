@@ -11,6 +11,10 @@ import { loadIconSwitcherConfig } from '../load-config';
 import { syncProject } from '../sync';
 import { renderTypes } from '../transforms/types';
 
+// Each test runs one or more full syncs (image generation included); the
+// 5 s default is too tight on shared CI runners.
+jest.setTimeout(30_000);
+
 const FIXTURES_ROOT = path.join(__dirname, '../__fixtures__');
 const BARE_FIXTURE = path.join(FIXTURES_ROOT, 'bare-project');
 const ICONS_FIXTURE = path.join(FIXTURES_ROOT, 'icons');
