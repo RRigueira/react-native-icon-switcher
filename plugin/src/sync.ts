@@ -4,7 +4,11 @@ import path from 'node:path';
 
 import xcode from 'xcode';
 
-import { planAssets, writeAssets } from './core/assets';
+import {
+  planAssets,
+  pruneStaleIosAppIconSets,
+  writeAssets,
+} from './core/assets';
 import type { ResolvedConfig } from './types';
 import { resolveConfig } from './core/validate';
 import { patchAndroidManifestText } from './transforms/android-text';
@@ -121,6 +125,14 @@ async function _syncAssets(
       } else {
         unchanged += 1;
       }
+    }
+
+    const staleIos = await pruneStaleIosAppIconSets(iosAssetCatalog, plan, {
+      check,
+    });
+    for (const abs of staleIos) {
+      driftedPaths.push(_rel(projectRoot, abs));
+      updated += 1;
     }
   } finally {
     await fs.rm(tmpRoot, { recursive: true, force: true });

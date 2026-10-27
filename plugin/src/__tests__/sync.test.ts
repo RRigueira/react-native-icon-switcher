@@ -189,6 +189,48 @@ describe('react-native-icon-switcher sync', () => {
     expect(code).toBe(2);
   });
 
+  it('removes stale PNGs from managed appiconset folders', async () => {
+    const projectDir = await _copyBareProject();
+    const defaultSet = path.join(
+      projectDir,
+      'ios/Fixture/Images.xcassets/AppIcon.appiconset'
+    );
+    const devSet = path.join(
+      projectDir,
+      'ios/Fixture/Images.xcassets/AppIcon.dev.appiconset'
+    );
+    await fs.mkdir(devSet, { recursive: true });
+    await fs.writeFile(path.join(defaultSet, 'icon-20.png'), 'stale');
+    await fs.writeFile(path.join(defaultSet, 'icon-1024.png'), 'stale');
+    await fs.writeFile(path.join(devSet, 'orphan.png'), 'keep');
+
+    const checkBefore = await run([
+      'sync',
+      '--check',
+      '--project-root',
+      projectDir,
+    ]);
+    expect(checkBefore).toBe(1);
+
+    await run(['sync', '--project-root', projectDir]);
+    const defaultFiles = await fs.readdir(defaultSet);
+    expect(defaultFiles).toContain('AppIcon-1024.png');
+    expect(defaultFiles).toContain('Contents.json');
+    expect(defaultFiles).not.toContain('icon-20.png');
+    expect(defaultFiles).not.toContain('icon-1024.png');
+    await expect(
+      fs.stat(path.join(devSet, 'orphan.png'))
+    ).resolves.toBeDefined();
+
+    const checkAfter = await run([
+      'sync',
+      '--check',
+      '--project-root',
+      projectDir,
+    ]);
+    expect(checkAfter).toBe(0);
+  });
+
   it('icon-switcher.d.ts matches renderTypes', async () => {
     const projectDir = await _copyBareProject();
     await run(['sync', '--project-root', projectDir]);

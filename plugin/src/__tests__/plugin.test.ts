@@ -19,10 +19,13 @@ jest.mock('../core/validate', () => ({
 
 const mockPlanAssets = jest.fn(() => ({ assets: [] }));
 const mockWriteAssets = jest.fn(async () => []);
+const mockPruneStaleIosAppIconSets = jest.fn(async () => []);
 
 jest.mock('../core/assets', () => ({
   planAssets: (...args: unknown[]) => mockPlanAssets(...args),
   writeAssets: (...args: unknown[]) => mockWriteAssets(...args),
+  pruneStaleIosAppIconSets: (...args: unknown[]) =>
+    mockPruneStaleIosAppIconSets(...args),
 }));
 
 describe('withIconSwitcher building blocks', () => {
