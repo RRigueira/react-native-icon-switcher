@@ -11,7 +11,12 @@ import {
   createRunOncePlugin,
 } from '@expo/config-plugins';
 
-import { planAssets, writeAssets, type AssetPlan } from './core/assets';
+import {
+  planAssets,
+  pruneStaleIosAppIconSets,
+  writeAssets,
+  type AssetPlan,
+} from './core/assets';
 import { resolveConfig } from './core/validate';
 import type { IconSwitcherConfig, IconSource } from './types';
 import { applyAndroidManifest } from './transforms/android';
@@ -178,6 +183,7 @@ const withIconSwitcher: ConfigPlugin<IconSwitcherConfig> = (config, props) => {
         iosAssetCatalog,
         androidResDir: path.join(projectRoot, '.noop-android'),
       });
+      await pruneStaleIosAppIconSets(iosAssetCatalog, plan, { check: false });
       await _writeTypesIfChanged(projectRoot, resolved);
       return config;
     },

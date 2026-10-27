@@ -107,6 +107,10 @@ Icons with no art for a platform are omitted from that platform's generated outp
 
 **Android reserved names:** names may not be `round`, `foreground`, `background`, or `monochrome`, nor end in `_round`, `_foreground`, `_background`, or `_monochrome`.
 
+**Legacy Android icons (API 24–25):** besides the adaptive layers and `mipmap-anydpi-v26` XML, `sync` and the plugin write `ic_launcher*.png` the way Android Studio's Image Asset tool does: the visible centre of an adaptive icon (72 dp of the 108 dp layers; a plain path uses the whole image) in a 38 dp rounded square or a 44 dp circle, with a soft drop shadow, on a transparent 48 dp canvas.
+
+**Managed iOS icon sets:** when `sync` or the plugin rewrites an `.appiconset` it owns, it deletes files in that folder that the new `Contents.json` does not reference (`sync --check` reports them). Other icon sets are left alone.
+
 ## Usage
 
 ```ts

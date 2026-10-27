@@ -12,6 +12,7 @@ const ICONS_FIXTURE = path.join(__dirname, '../__fixtures__/icons');
 jest.mock('../core/assets', () => ({
   planAssets: jest.fn(() => ({ assets: [] })),
   writeAssets: jest.fn(async () => []),
+  pruneStaleIosAppIconSets: jest.fn(async () => []),
 }));
 
 describe('withIconSwitcher platform mods (integration)', () => {

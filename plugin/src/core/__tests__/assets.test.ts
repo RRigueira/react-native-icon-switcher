@@ -5,10 +5,38 @@ import path from 'node:path';
 
 import sharp from 'sharp';
 
-import { _readCornerRgb, planAssets, writeAssets } from '../assets';
+import {
+  LEGACY_SHADOW_BLUR_DP,
+  LEGACY_SHADOW_OFFSET_Y_DP,
+  LEGACY_SHADOW_OPACITY,
+  PNG_PIXEL_TOLERANCE,
+  _readCornerRgb,
+  pngsMatchWithinTolerance,
+  planAssets,
+  pruneStaleIosAppIconSets,
+  writeAssets,
+} from '../assets';
 import { resolveConfig } from '../validate';
 
 const PROJECT_ROOT = path.join(__dirname, '../../__fixtures__');
+
+async function _readRgba(
+  pngPath: string,
+  x: number,
+  y: number
+): Promise<{ r: number; g: number; b: number; a: number }> {
+  const { data } = await sharp(pngPath)
+    .ensureAlpha()
+    .extract({ left: x, top: y, width: 1, height: 1 })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return {
+    r: data[0] ?? 0,
+    g: data[1] ?? 0,
+    b: data[2] ?? 0,
+    a: data[3] ?? 255,
+  };
+}
 
 function _resolved() {
   return resolveConfig(
@@ -115,8 +143,8 @@ describe('writeAssets', () => {
       androidResDir: isolatedAndroid,
     });
     const legacy = path.join(isolatedAndroid, 'mipmap-mdpi/ic_launcher.png');
-    const corner = await _readCornerRgb(legacy);
-    expect(corner).toEqual({ r: 0, g: 255, b: 0 });
+    const corner = await _readRgba(legacy, 0, 0);
+    expect(corner.a).toBe(0);
     await fs.rm(isolatedAndroid, { recursive: true, force: true });
   });
 
@@ -284,6 +312,166 @@ describe('writeAssets', () => {
     await fs.rm(isolatedIos, { recursive: true, force: true });
   });
 
+  it('legacy adaptive mipmaps match Android Studio geometry at xxxhdpi', async () => {
+    const fgPath = path.join(PROJECT_ROOT, 'icons/legacy-geo-fg.png');
+    const square = 72;
+    const margin = 18;
+    const layer = margin * 2 + square;
+    await sharp({
+      create: {
+        width: layer,
+        height: layer,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      },
+    })
+      .composite([
+        {
+          input: await sharp({
+            create: {
+              width: square,
+              height: square,
+              channels: 4,
+              background: { r: 255, g: 0, b: 0, alpha: 255 },
+            },
+          })
+            .png()
+            .toBuffer(),
+          left: margin,
+          top: margin,
+        },
+      ])
+      .png()
+      .toFile(fgPath);
+
+    const resolved = resolveConfig(
+      {
+        default: {
+          android: {
+            foreground: 'icons/legacy-geo-fg.png',
+            background: '#00FF00',
+          },
+        },
+        icons: { halloween: 'icons/halloween.png' },
+      },
+      { projectRoot: PROJECT_ROOT }
+    );
+    const isolatedAndroid = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'aik-legacy-geo-')
+    );
+    const plan = planAssets(resolved, PROJECT_ROOT);
+    await writeAssets(plan, {
+      iosAssetCatalog: tmpIos,
+      androidResDir: isolatedAndroid,
+    });
+
+    const squarePng = path.join(
+      isolatedAndroid,
+      'mipmap-xxxhdpi/ic_launcher.png'
+    );
+    const roundPng = path.join(
+      isolatedAndroid,
+      'mipmap-xxxhdpi/ic_launcher_round.png'
+    );
+
+    expect((await _readRgba(squarePng, 10, 10)).a).toBe(0);
+    expect((await _readRgba(squarePng, 30, 30)).a).toBeGreaterThan(200);
+    expect((await _readRgba(roundPng, 5, 5)).a).toBe(0);
+
+    const insideSquare = await _readRgba(squarePng, 100, 100);
+    expect(insideSquare.a).toBeGreaterThan(200);
+    expect(insideSquare.r).toBeGreaterThan(insideSquare.g);
+
+    const belowShape = await _readRgba(squarePng, 96, 175);
+    expect(belowShape.a).toBeGreaterThan(0);
+    expect(belowShape.a).toBeLessThan(120);
+
+    await fs.rm(fgPath, { force: true });
+    await fs.rm(isolatedAndroid, { recursive: true, force: true });
+  });
+
+  it('legacy adaptive mipmaps scale geometry at mdpi', async () => {
+    const resolved = resolveConfig(
+      {
+        default: {
+          android: {
+            foreground: 'icons/default.png',
+            background: '#112233',
+          },
+        },
+        icons: { halloween: 'icons/halloween.png' },
+      },
+      { projectRoot: PROJECT_ROOT }
+    );
+    const isolatedAndroid = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'aik-legacy-mdpi-')
+    );
+    const plan = planAssets(resolved, PROJECT_ROOT);
+    await writeAssets(plan, {
+      iosAssetCatalog: tmpIos,
+      androidResDir: isolatedAndroid,
+    });
+    const mdpi = path.join(isolatedAndroid, 'mipmap-mdpi/ic_launcher.png');
+    expect((await sharp(mdpi).metadata()).width).toBe(48);
+    expect((await _readRgba(mdpi, 2, 2)).a).toBe(0);
+    expect((await _readRgba(mdpi, 8, 8)).a).toBeGreaterThan(200);
+    await fs.rm(isolatedAndroid, { recursive: true, force: true });
+  });
+
+  it('plain legacy path uses full image inside the studio shape', async () => {
+    const isolatedAndroid = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'aik-legacy-plain-')
+    );
+    const plan = planAssets(_resolved(), PROJECT_ROOT);
+    await writeAssets(plan, {
+      iosAssetCatalog: tmpIos,
+      androidResDir: isolatedAndroid,
+    });
+    const png = path.join(
+      isolatedAndroid,
+      'mipmap-xxxhdpi/ic_launcher_halloween.png'
+    );
+    expect((await _readRgba(png, 10, 10)).a).toBe(0);
+    expect((await _readRgba(png, 100, 100)).a).toBeGreaterThan(200);
+    await fs.rm(isolatedAndroid, { recursive: true, force: true });
+  });
+
+  it('documents legacy shadow constants for regression tests', () => {
+    expect(LEGACY_SHADOW_OFFSET_Y_DP).toBe(0.75);
+    expect(LEGACY_SHADOW_BLUR_DP).toBe(1);
+    expect(LEGACY_SHADOW_OPACITY).toBe(0.25);
+  });
+
+  it('prunes stale files from managed appiconset folders only', async () => {
+    const isolatedIos = await fs.mkdtemp(path.join(os.tmpdir(), 'aik-prune-'));
+    const defaultSet = path.join(isolatedIos, 'AppIcon.appiconset');
+    const devSet = path.join(isolatedIos, 'AppIcon.dev.appiconset');
+    await fs.mkdir(defaultSet, { recursive: true });
+    await fs.mkdir(devSet, { recursive: true });
+    await fs.writeFile(path.join(defaultSet, 'icon-20.png'), 'stale');
+    await fs.writeFile(path.join(defaultSet, 'icon-1024.png'), 'stale');
+    await fs.writeFile(path.join(devSet, 'extra.png'), 'keep');
+
+    const plan = planAssets(_resolved(), PROJECT_ROOT);
+    await writeAssets(plan, {
+      iosAssetCatalog: isolatedIos,
+      androidResDir: tmpAndroid,
+    });
+    const removed = await pruneStaleIosAppIconSets(isolatedIos, plan, {
+      check: false,
+    });
+    expect(removed.map((p) => path.basename(p)).sort()).toEqual([
+      'icon-1024.png',
+      'icon-20.png',
+    ]);
+    const defaultFiles = await fs.readdir(defaultSet);
+    expect(defaultFiles.sort()).toEqual(['AppIcon-1024.png', 'Contents.json']);
+    await expect(
+      fs.stat(path.join(devSet, 'extra.png'))
+    ).resolves.toBeDefined();
+    await fs.rm(isolatedIos, { recursive: true, force: true });
+  });
+
   it('produces byte-identical output on second write', async () => {
     const isolatedIos = await fs.mkdtemp(path.join(os.tmpdir(), 'aik-ios2-'));
     const isolatedAndroid = await fs.mkdtemp(
@@ -311,5 +499,43 @@ describe('writeAssets', () => {
 
     await fs.rm(isolatedIos, { recursive: true, force: true });
     await fs.rm(isolatedAndroid, { recursive: true, force: true });
+  });
+
+  describe('pngsMatchWithinTolerance', () => {
+    async function _solidPng(
+      value: number,
+      size = 8,
+      channels: 3 | 4 = 4
+    ): Promise<Buffer> {
+      return sharp(Buffer.alloc(size * size * channels, value), {
+        raw: { width: size, height: size, channels },
+      })
+        .png()
+        .toBuffer();
+    }
+
+    it('treats a difference within the tolerance as the same image', async () => {
+      const a = await _solidPng(100);
+      const b = await _solidPng(100 + PNG_PIXEL_TOLERANCE);
+      expect(await pngsMatchWithinTolerance(a, b)).toBe(true);
+    });
+
+    it('treats a larger difference as a change', async () => {
+      const a = await _solidPng(100);
+      const b = await _solidPng(100 + PNG_PIXEL_TOLERANCE + 1);
+      expect(await pngsMatchWithinTolerance(a, b)).toBe(false);
+    });
+
+    it('treats a different size as a change', async () => {
+      const a = await _solidPng(100, 8);
+      const b = await _solidPng(100, 9);
+      expect(await pngsMatchWithinTolerance(a, b)).toBe(false);
+    });
+
+    it('returns false when either buffer is not a PNG', async () => {
+      const a = await _solidPng(100);
+      expect(await pngsMatchWithinTolerance(a, Buffer.from('{}'))).toBe(false);
+      expect(await pngsMatchWithinTolerance(Buffer.from('{}'), a)).toBe(false);
+    });
   });
 });
