@@ -463,6 +463,85 @@ async function _legacyMaskedContent(
     .toBuffer();
 }
 
+function _boxBlurLine(
+  src: Uint8Array,
+  size: number,
+  radius: number,
+  horizontal: boolean
+): Uint8Array {
+  const out = new Uint8Array(src.length);
+  const window = radius * 2 + 1;
+  for (let line = 0; line < size; line += 1) {
+    const at = (i: number) => (horizontal ? line * size + i : i * size + line);
+    let sum = 0;
+    for (let i = -radius; i <= radius; i += 1) {
+      if (i >= 0 && i < size) {
+        sum += src[at(i)]!;
+      }
+    }
+    for (let i = 0; i < size; i += 1) {
+      out[at(i)] = Math.floor(sum / window);
+      const leaving = i - radius;
+      const entering = i + radius + 1;
+      if (leaving >= 0) {
+        sum -= src[at(leaving)]!;
+      }
+      if (entering < size) {
+        sum += src[at(entering)]!;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Black drop shadow of the shape on a transparent canvas. The blur is done in
+ * integer arithmetic here rather than with an SVG filter: librsvg's float blur
+ * produced different bytes on macOS and Linux, which broke `sync --check` in CI.
+ */
+async function _legacyShadowLayer(
+  canvasPx: number,
+  shapeMarkup: string,
+  offsetY: number,
+  blurPx: number
+): Promise<Buffer> {
+  const shapeSvg = Buffer.from(
+    `<svg width="${canvasPx}" height="${canvasPx}" xmlns="http://www.w3.org/2000/svg">${shapeMarkup}</svg>`
+  );
+  const shape = await sharp(shapeSvg)
+    .ensureAlpha()
+    .extractChannel(3)
+    .raw()
+    .toBuffer();
+
+  // Three box-blur passes approximate a Gaussian.
+  const radius = Math.max(1, Math.round(blurPx / 2));
+  let alpha: Uint8Array = Uint8Array.from(shape);
+  for (let pass = 0; pass < 3; pass += 1) {
+    alpha = _boxBlurLine(alpha, canvasPx, radius, true);
+    alpha = _boxBlurLine(alpha, canvasPx, radius, false);
+  }
+
+  const opacity256 = Math.round(LEGACY_SHADOW_OPACITY * 256);
+  const rgba = Buffer.alloc(canvasPx * canvasPx * 4);
+  for (let y = 0; y < canvasPx; y += 1) {
+    const sourceY = y - offsetY;
+    if (sourceY < 0 || sourceY >= canvasPx) {
+      continue;
+    }
+    for (let x = 0; x < canvasPx; x += 1) {
+      const a = alpha[sourceY * canvasPx + x]!;
+      rgba[(y * canvasPx + x) * 4 + 3] = Math.floor((a * opacity256) / 256);
+    }
+  }
+
+  return sharp(rgba, {
+    raw: { width: canvasPx, height: canvasPx, channels: 4 },
+  })
+    .png()
+    .toBuffer();
+}
+
 async function _legacyStudioPng(
   content: Buffer,
   canvasPx: number,
@@ -477,17 +556,12 @@ async function _legacyStudioPng(
   const shapeMarkup = round
     ? `<circle cx="${cx}" cy="${cy}" r="${bodyPx / 2}" fill="#000"/>`
     : `<rect x="${inset}" y="${inset}" width="${bodyPx}" height="${bodyPx}" rx="${radiusPx}" ry="${radiusPx}" fill="#000"/>`;
-  const shadowSvg = Buffer.from(
-    `<svg width="${canvasPx}" height="${canvasPx}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <filter id="legacyShadow" x="-30%" y="-30%" width="160%" height="160%">
-          <feDropShadow dx="0" dy="${shadowOffsetY}" stdDeviation="${blurPx / 2}" flood-color="#000000" flood-opacity="${LEGACY_SHADOW_OPACITY}"/>
-        </filter>
-      </defs>
-      <g filter="url(#legacyShadow)">${shapeMarkup}</g>
-    </svg>`
+  const shadowLayer = await _legacyShadowLayer(
+    canvasPx,
+    shapeMarkup,
+    shadowOffsetY,
+    blurPx
   );
-  const shadowLayer = await sharp(shadowSvg).png().toBuffer();
 
   return sharp(shadowLayer)
     .composite([{ input: masked, left: inset, top: inset, blend: 'over' }])
