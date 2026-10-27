@@ -32,6 +32,7 @@ import {
   mockNativeState,
   _resetMockState,
 } from '../__mocks__/NativeIconSwitcher';
+import { IconSwitcherError } from '../errors';
 import { syncIcon, type SyncIconStorage } from '../remote/index';
 
 async function _flushAsync(): Promise<void> {
@@ -187,10 +188,54 @@ describe('syncIcon', () => {
       throw new Error('network');
     });
     await expect(syncIcon({ fetchChoice, onError })).resolves.toBeDefined();
+    expect(onError).toHaveBeenCalledTimes(1);
     expect(onError).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'network' })
     );
     expect(mockNativeState.setCalls).toHaveLength(0);
+  });
+
+  it('routes set rejections to onError once and blocks retry within retryAfterMs', async () => {
+    const storage = createRecordingStorage();
+    mockNativeState.setImpl = async () => {
+      throw Object.assign(new Error('rejected'), { code: 'ERR_OS_REJECTED' });
+    };
+    const onError = jest.fn();
+    const fetchChoice = jest.fn(async () => 'halloween');
+    await syncIcon({ fetchChoice, storage, retryAfterMs: 60_000, onError });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'os_rejected' })
+    );
+    expect(storage.store.get('icon-switcher:lastFailed')).toBeDefined();
+
+    mockNativeState.setCalls = [];
+    onError.mockClear();
+    await syncIcon({ fetchChoice, storage, retryAfterMs: 60_000, onError });
+    expect(mockNativeState.setCalls).toHaveLength(0);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('still resolves when onError throws after set failure and allows a later run', async () => {
+    const storage = createRecordingStorage();
+    mockNativeState.setImpl = async () => {
+      throw new IconSwitcherError('os_rejected', 'rejected');
+    };
+    const onError = jest.fn(() => {
+      throw new Error('logger blew up');
+    });
+    const fetchChoice = jest.fn(async () => 'halloween');
+    await expect(
+      syncIcon({ fetchChoice, storage, retryAfterMs: 1, onError })
+    ).resolves.toBeDefined();
+
+    mockNativeState.setCalls = [];
+    mockNativeState.setImpl = async () => ({ status: 'applied' });
+    onError.mockClear();
+    jest.useFakeTimers();
+    jest.advanceTimersByTime(2);
+    await syncIcon({ fetchChoice, storage, retryAfterMs: 1, onError });
+    expect(mockNativeState.setCalls).toEqual(['halloween']);
   });
 
   it('does not run overlapping active handlers concurrently', async () => {

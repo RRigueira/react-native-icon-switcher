@@ -184,6 +184,8 @@ const unsubscribe = await syncIcon({
 // call unsubscribe() to remove iOS AppState listener
 ```
 
+`onError` receives errors from `fetchChoice` or storage, and failures from `set()` as an `IconSwitcherError` with its `code` (for example `os_rejected`, `unsupported`, or `foreground`). After `set` fails for a given icon name, that name is not retried until `retryAfterMs` elapses (default 24 hours).
+
 On **iOS**, the helper runs when the app is `active` and subscribes to `AppState`. On **Android**, it runs once when called (`set` may still return `pending`).
 
 ## Testing with Jest

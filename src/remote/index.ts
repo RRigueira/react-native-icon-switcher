@@ -71,7 +71,14 @@ function _isFailedBlocked(
 export async function syncIcon(options: SyncIconOptions): Promise<() => void> {
   const storage = options.storage ?? _createMemoryStorage();
   const retryAfterMs = options.retryAfterMs ?? DEFAULT_RETRY_AFTER_MS;
-  const onError = options.onError;
+  // A throwing onError must never break syncIcon or surface as an unhandled rejection.
+  const reportError = (error: unknown): void => {
+    try {
+      options.onError?.(error);
+    } catch {
+      // Ignored on purpose.
+    }
+  };
 
   let inFlight = false;
 
@@ -111,11 +118,12 @@ export async function syncIcon(options: SyncIconOptions): Promise<() => void> {
         }
         await storage.setItem(STORAGE_KEY_APPLIED, choice);
         await storage.setItem(STORAGE_KEY_FAILED, '');
-      } catch {
+      } catch (error) {
         await storage.setItem(STORAGE_KEY_FAILED, _encodeFailed(choice));
+        reportError(error);
       }
     } catch (error) {
-      onError?.(error);
+      reportError(error);
     } finally {
       inFlight = false;
     }
