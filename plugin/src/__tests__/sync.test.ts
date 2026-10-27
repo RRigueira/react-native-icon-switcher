@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { XML } from '@expo/config-plugins';
+import sharp from 'sharp';
 
 import { run } from '../cli';
 import { resolveConfig } from '../core/validate';
@@ -124,6 +125,52 @@ describe('react-native-icon-switcher sync', () => {
     await fs.rm(png);
     const code = await run(['sync', '--check', '--project-root', projectDir]);
     expect(code).toBe(1);
+  });
+
+  it('--check ignores resampling-level PNG differences but reports real changes', async () => {
+    const projectDir = await _copyBareProject();
+    await run(['sync', '--project-root', projectDir]);
+    const png = path.join(
+      projectDir,
+      'android/app/src/main/res/mipmap-mdpi/ic_launcher_halloween.png'
+    );
+    const original = await fs.readFile(png);
+    const _shiftPixels = async (delta: number) => {
+      const { data, info } = await sharp(original)
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.min(255, data[i]! + delta);
+      }
+      await fs.writeFile(
+        png,
+        await sharp(data, {
+          raw: { width: info.width, height: info.height, channels: 4 },
+        })
+          .png({ compressionLevel: 1 })
+          .toBuffer()
+      );
+    };
+
+    // Another CPU's rounding: different bytes, same picture.
+    await _shiftPixels(1);
+    expect(await run(['sync', '--check', '--project-root', projectDir])).toBe(
+      0
+    );
+    const unchanged = await syncProject({
+      projectRoot: projectDir,
+      check: false,
+    });
+    expect(unchanged.driftedPaths).not.toContain(
+      'android/app/src/main/res/mipmap-mdpi/ic_launcher_halloween.png'
+    );
+
+    // A visible edit is still drift.
+    await _shiftPixels(40);
+    expect(await run(['sync', '--check', '--project-root', projectDir])).toBe(
+      1
+    );
   });
 
   it('--check exits 1 after hand-editing the manifest', async () => {

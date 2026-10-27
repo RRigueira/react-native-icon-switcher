@@ -9,7 +9,9 @@ import {
   LEGACY_SHADOW_BLUR_DP,
   LEGACY_SHADOW_OFFSET_Y_DP,
   LEGACY_SHADOW_OPACITY,
+  PNG_PIXEL_TOLERANCE,
   _readCornerRgb,
+  pngsMatchWithinTolerance,
   planAssets,
   pruneStaleIosAppIconSets,
   writeAssets,
@@ -497,5 +499,43 @@ describe('writeAssets', () => {
 
     await fs.rm(isolatedIos, { recursive: true, force: true });
     await fs.rm(isolatedAndroid, { recursive: true, force: true });
+  });
+
+  describe('pngsMatchWithinTolerance', () => {
+    async function _solidPng(
+      value: number,
+      size = 8,
+      channels: 3 | 4 = 4
+    ): Promise<Buffer> {
+      return sharp(Buffer.alloc(size * size * channels, value), {
+        raw: { width: size, height: size, channels },
+      })
+        .png()
+        .toBuffer();
+    }
+
+    it('treats a difference within the tolerance as the same image', async () => {
+      const a = await _solidPng(100);
+      const b = await _solidPng(100 + PNG_PIXEL_TOLERANCE);
+      expect(await pngsMatchWithinTolerance(a, b)).toBe(true);
+    });
+
+    it('treats a larger difference as a change', async () => {
+      const a = await _solidPng(100);
+      const b = await _solidPng(100 + PNG_PIXEL_TOLERANCE + 1);
+      expect(await pngsMatchWithinTolerance(a, b)).toBe(false);
+    });
+
+    it('treats a different size as a change', async () => {
+      const a = await _solidPng(100, 8);
+      const b = await _solidPng(100, 9);
+      expect(await pngsMatchWithinTolerance(a, b)).toBe(false);
+    });
+
+    it('returns false when either buffer is not a PNG', async () => {
+      const a = await _solidPng(100);
+      expect(await pngsMatchWithinTolerance(a, Buffer.from('{}'))).toBe(false);
+      expect(await pngsMatchWithinTolerance(Buffer.from('{}'), a)).toBe(false);
+    });
   });
 });

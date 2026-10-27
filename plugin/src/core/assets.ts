@@ -38,6 +38,47 @@ const ADAPTIVE_VIEWPORT_DP = 72;
 export const LEGACY_SHADOW_OFFSET_Y_DP = 0.75;
 export const LEGACY_SHADOW_BLUR_DP = 1;
 export const LEGACY_SHADOW_OPACITY = 0.25;
+/**
+ * Largest per-channel difference at which two PNGs still count as the same
+ * image. libvips resampling rounds slightly differently on arm64 and x86, so
+ * icons generated on a Mac and re-generated in Linux CI can differ by a level
+ * or two without any visible change.
+ */
+export const PNG_PIXEL_TOLERANCE = 3;
+
+const PNG_SIGNATURE = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
+
+/** True when both buffers are PNGs of the same size whose pixels differ by at most `PNG_PIXEL_TOLERANCE`. */
+export async function pngsMatchWithinTolerance(
+  a: Buffer,
+  b: Buffer
+): Promise<boolean> {
+  if (
+    !a.subarray(0, 8).equals(PNG_SIGNATURE) ||
+    !b.subarray(0, 8).equals(PNG_SIGNATURE)
+  ) {
+    return false;
+  }
+  const [left, right] = await Promise.all(
+    [a, b].map((buf) =>
+      sharp(buf).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    )
+  );
+  if (
+    left!.info.width !== right!.info.width ||
+    left!.info.height !== right!.info.height
+  ) {
+    return false;
+  }
+  for (let i = 0; i < left!.data.length; i += 1) {
+    if (Math.abs(left!.data[i]! - right!.data[i]!) > PNG_PIXEL_TOLERANCE) {
+      return false;
+    }
+  }
+  return true;
+}
 
 export type IosVariant = 'light' | 'dark' | 'tinted';
 
