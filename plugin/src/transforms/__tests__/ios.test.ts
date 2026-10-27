@@ -107,6 +107,27 @@ describe('applyInfoPlist', () => {
 });
 
 describe('applyXcodeProject', () => {
+  it('quotes a single alternate name when it contains characters outside Xcodeproj unquoted set', () => {
+    const blackFriday: ResolvedConfig = {
+      ...sampleConfig,
+      icons: [
+        sampleConfig.icons[0],
+        {
+          name: 'black_friday',
+          isDefault: false,
+          ios: { light: 'icons/halloween.png' },
+          android: { legacy: 'icons/halloween.png' },
+        },
+      ],
+    };
+    const project = loadStockProject();
+    applyXcodeProject(project, blackFriday);
+    const text = project.writeSync();
+    expect(text).toContain(
+      'ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-black_friday";'
+    );
+  });
+
   it('sets alternate app icon build settings on Debug and Release', () => {
     const project = loadStockProject();
     applyXcodeProject(project, sampleConfig);
@@ -114,7 +135,7 @@ describe('applyXcodeProject', () => {
     expect(settings.length).toBeGreaterThanOrEqual(2);
     for (const buildSettings of settings) {
       expect(buildSettings.ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES).toBe(
-        'AppIcon-halloween'
+        '"AppIcon-halloween"'
       );
       expect(
         buildSettings.ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS
@@ -165,6 +186,98 @@ describe('applyXcodeProject', () => {
     reparsed.parseSync();
     applyXcodeProject(reparsed, twoAlternates);
     expect(reparsed.writeSync()).toBe(text);
+  });
+
+  it('leaves existing equal alternate names setting byte-identical (quoted)', () => {
+    const project = loadStockProject();
+    applyXcodeProject(project, sampleConfig);
+    const podLike = project.writeSync();
+    const tmpPath = path.join(
+      os.tmpdir(),
+      `icon-switcher-pbx-pod-${Date.now()}.pbxproj`
+    );
+    fs.writeFileSync(tmpPath, podLike);
+    const reparsed = xcode.project(tmpPath);
+    reparsed.parseSync();
+    applyXcodeProject(reparsed, sampleConfig);
+    expect(reparsed.writeSync()).toBe(podLike);
+  });
+
+  it('leaves existing equal alternate names setting byte-identical (unquoted)', () => {
+    const project = loadStockProject();
+    applyXcodeProject(project, sampleConfig);
+    const unquoted = project
+      .writeSync()
+      .replace(
+        /ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-halloween";/g,
+        'ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = AppIcon-halloween;'
+      );
+    expect(unquoted).not.toContain(
+      'ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-halloween";'
+    );
+    const tmpPath = path.join(
+      os.tmpdir(),
+      `icon-switcher-pbx-unq-${Date.now()}.pbxproj`
+    );
+    fs.writeFileSync(tmpPath, unquoted);
+    const reparsed = xcode.project(tmpPath);
+    reparsed.parseSync();
+    applyXcodeProject(reparsed, sampleConfig);
+    expect(reparsed.writeSync()).toBe(unquoted);
+  });
+
+  it('replaces an existing different alternate names value using Xcodeproj quoting', () => {
+    const project = loadStockProject();
+    applyXcodeProject(project, sampleConfig);
+    const section = project.pbxXCBuildConfigurationSection();
+    for (const [key, value] of Object.entries(section)) {
+      if (key.endsWith('_comment')) {
+        continue;
+      }
+      const item = value as { buildSettings?: Record<string, string> };
+      if (item.buildSettings?.PRODUCT_NAME) {
+        item.buildSettings.ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES =
+          'AppIcon-other';
+      }
+    }
+    applyXcodeProject(project, sampleConfig);
+    const text = project.writeSync();
+    expect(text).toContain(
+      'ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-halloween";'
+    );
+  });
+
+  it('leaves INCLUDE_ALL_APPICON_ASSETS quoting untouched when value is NO', () => {
+    const project = loadStockProject();
+    applyXcodeProject(project, sampleConfig);
+    const section = project.pbxXCBuildConfigurationSection();
+    for (const [key, value] of Object.entries(section)) {
+      if (key.endsWith('_comment')) {
+        continue;
+      }
+      const item = value as { buildSettings?: Record<string, string> };
+      if (item.buildSettings?.PRODUCT_NAME) {
+        item.buildSettings.ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS =
+          '"NO"';
+      }
+    }
+    const beforeQuoted = project.writeSync();
+    applyXcodeProject(project, sampleConfig);
+    expect(project.writeSync()).toBe(beforeQuoted);
+
+    for (const [key, value] of Object.entries(section)) {
+      if (key.endsWith('_comment')) {
+        continue;
+      }
+      const item = value as { buildSettings?: Record<string, string> };
+      if (item.buildSettings?.PRODUCT_NAME) {
+        item.buildSettings.ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS =
+          'NO';
+      }
+    }
+    const beforeUnquoted = project.writeSync();
+    applyXcodeProject(project, sampleConfig);
+    expect(project.writeSync()).toBe(beforeUnquoted);
   });
 
   it('warns when a build configuration has no ASSETCATALOG_COMPILER_APPICON_NAME', () => {
@@ -291,7 +404,7 @@ describe('applyXcodeProject', () => {
     applyXcodeProject(project, mixed);
     for (const buildSettings of projectBuildSettings(project)) {
       expect(buildSettings.ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES).toBe(
-        'AppIcon-spooky'
+        '"AppIcon-spooky"'
       );
     }
   });

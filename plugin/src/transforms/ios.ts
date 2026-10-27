@@ -59,22 +59,42 @@ export function applyXcodeProject(
         `[react-native-icon-switcher] Build configuration "${String(configName)}" has no ASSETCATALOG_COMPILER_APPICON_NAME — set the primary app icon in Xcode`
       );
     }
-    settings.ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES =
-      _formatAlternateAppIconNamesSetting(alternateNames);
-    settings.ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = 'NO';
+    _setBuildSettingPreservingQuoting(
+      settings,
+      'ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES',
+      alternateNames
+    );
+    _setBuildSettingPreservingQuoting(
+      settings,
+      'ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS',
+      'NO'
+    );
   }
 
   return project;
 }
 
-function _formatAlternateAppIconNamesSetting(raw: string): string {
+function _setBuildSettingPreservingQuoting(
+  settings: Record<string, string | undefined>,
+  key: string,
+  desired: string
+): void {
+  const existing = settings[key];
+  if (existing !== undefined && _unquote(existing) === desired) {
+    return;
+  }
+  settings[key] = _formatXcodeprojBuildSettingValue(desired);
+}
+
+function _formatXcodeprojBuildSettingValue(raw: string): string {
   if (!raw) {
     return '';
   }
-  if (!raw.includes(' ')) {
+  if (/^[A-Za-z0-9_$/:.]+$/.test(raw)) {
     return raw;
   }
-  return `"${raw}"`;
+  const escaped = raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `"${escaped}"`;
 }
 
 function _findFirstApplicationTarget(

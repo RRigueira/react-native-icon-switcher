@@ -84,6 +84,36 @@ describe('react-native-icon-switcher sync', () => {
     expect(code).toBe(0);
   });
 
+  it('--check exits 0 after pod install re-quotes alternate app icon names', async () => {
+    const projectDir = await _copyBareProject();
+    await run(['sync', '--project-root', projectDir]);
+    const pbxprojPath = path.join(
+      projectDir,
+      'ios/Fixture.xcodeproj/project.pbxproj'
+    );
+    const pbx = await fs.readFile(pbxprojPath, 'utf8');
+    const legacyUnquoted = pbx.replace(
+      /ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-halloween";/g,
+      'ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = AppIcon-halloween;'
+    );
+    expect(legacyUnquoted).not.toBe(pbx);
+    const podLike = legacyUnquoted.replace(
+      /ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = AppIcon-halloween;/g,
+      'ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-halloween";'
+    );
+    expect(podLike).not.toBe(legacyUnquoted);
+    await fs.writeFile(pbxprojPath, podLike, 'utf8');
+    const checkCode = await run([
+      'sync',
+      '--check',
+      '--project-root',
+      projectDir,
+    ]);
+    expect(checkCode).toBe(0);
+    const second = await syncProject({ projectRoot: projectDir, check: false });
+    expect(second.updated).toBe(0);
+  });
+
   it('--check exits 1 after deleting a generated PNG', async () => {
     const projectDir = await _copyBareProject();
     await run(['sync', '--project-root', projectDir]);
