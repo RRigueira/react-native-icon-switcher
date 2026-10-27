@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.3](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.2...v0.1.3) (2026-10-27)
+
+### Bug Fixes
+
+* **remote:** report set() failures through onError ([85f9ab1](https://github.com/RRigueira/react-native-icon-switcher/commit/85f9ab154c99609db257511993a956d442c7c9e8))
+
 ## [0.1.2](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.1...v0.1.2) (2026-10-26)
 
 ### Bug Fixes
