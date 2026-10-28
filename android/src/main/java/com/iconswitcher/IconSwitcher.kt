@@ -1,5 +1,7 @@
 package com.iconswitcher
 
+import android.app.Activity
+import android.app.Application
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -7,6 +9,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -25,9 +28,13 @@ class IconSwitcher internal constructor(
   private val packageName: String,
   private val prefs: android.content.SharedPreferences,
   private val lifecycleRegistrar: (DefaultLifecycleObserver) -> Unit,
+  private val activityLifecycleRegistrar: (Application.ActivityLifecycleCallbacks) -> Unit,
   private val isInForeground: () -> Boolean,
 ) {
   private val writeExecutor = Executors.newSingleThreadExecutor()
+  private val processStartLock = Any()
+  private var processStartInitialized = false
+  private var startedActivityCount = 0
 
   private val markedAliases: Map<String, ComponentName> by lazy { discoverMarkedAliases() }
   private val applyOn: String by lazy { readApplyOn() }
@@ -53,6 +60,9 @@ class IconSwitcher internal constructor(
         }
       }
     },
+    activityLifecycleRegistrar = { callbacks ->
+      (context.applicationContext as Application).registerActivityLifecycleCallbacks(callbacks)
+    },
     isInForeground = {
       ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
     },
@@ -67,21 +77,33 @@ class IconSwitcher internal constructor(
     packageName = context.applicationContext.packageName,
     prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE),
     lifecycleRegistrar = { },
+    activityLifecycleRegistrar = { },
     isInForeground = { false },
   )
 
   fun onModuleCreate() {
-    lifecycleRegistrar(
-      object : DefaultLifecycleObserver {
-        override fun onStop(owner: LifecycleOwner) {
-          val pending = prefs.getString(KEY_PENDING, null)
-          if (pending != null) {
-            runApply(pending, deferred = true)
+    onProcessStart()
+  }
+
+  fun onProcessStart() {
+    synchronized(processStartLock) {
+      if (processStartInitialized) {
+        return
+      }
+      activityLifecycleRegistrar(createActivityLifecycleCallbacks())
+      lifecycleRegistrar(
+        object : DefaultLifecycleObserver {
+          override fun onStop(owner: LifecycleOwner) {
+            val pending = prefs.getString(KEY_PENDING, null)
+            if (pending != null) {
+              runApply(pending, deferred = true)
+            }
           }
-        }
-      },
-    )
-    runColdStart()
+        },
+      )
+      runColdStart()
+      processStartInitialized = true
+    }
   }
 
   fun current(): String {
@@ -124,6 +146,41 @@ class IconSwitcher internal constructor(
     }
     runApply(pending, deferred = false)
     return SetResult(STATUS_APPLIED)
+  }
+
+  private fun createActivityLifecycleCallbacks(): Application.ActivityLifecycleCallbacks {
+    return object : Application.ActivityLifecycleCallbacks {
+      override fun onActivityStarted(activity: Activity) {
+        startedActivityCount++
+      }
+
+      override fun onActivityStopped(activity: Activity) {
+        // Clamped: when registered late (no startup provider, so from the module),
+        // activities that started earlier were never counted.
+        startedActivityCount = maxOf(0, startedActivityCount - 1)
+        if (startedActivityCount == 0 && !activity.isChangingConfigurations) {
+          val pending = prefs.getString(KEY_PENDING, null)
+          if (pending != null) {
+            applyPendingOnLastActivityStop(pending)
+          }
+        }
+      }
+
+      override fun onActivityCreated(activity: Activity, savedInstanceState: android.os.Bundle?) {}
+      override fun onActivityResumed(activity: Activity) {}
+      override fun onActivityPaused(activity: Activity) {}
+      override fun onActivitySaveInstanceState(activity: Activity, outState: android.os.Bundle) {}
+      override fun onActivityDestroyed(activity: Activity) {}
+    }
+  }
+
+  private fun applyPendingOnLastActivityStop(name: String) {
+    val future = submitOnWriteExecutor { applyOnExecutor(name, deferred = true) }
+    try {
+      future.get()
+    } catch (_: Exception) {
+      // applyOnExecutor stores lastError for deferred failures; never propagate here.
+    }
   }
 
   private fun runColdStart() {
@@ -376,5 +433,23 @@ class IconSwitcher internal constructor(
     const val STATUS_APPLIED = "applied"
     const val STATUS_PENDING = "pending"
     const val STATUS_NONE = "none"
+
+    @Volatile
+    private var instance: IconSwitcher? = null
+
+    fun getInstance(context: Context): IconSwitcher {
+      val appContext = context.applicationContext
+      instance?.let { return it }
+      return synchronized(this) {
+        instance ?: IconSwitcher(appContext).also { instance = it }
+      }
+    }
+
+    @VisibleForTesting
+    internal fun clearInstanceForTests() {
+      synchronized(this) {
+        instance = null
+      }
+    }
   }
 }

@@ -8,7 +8,7 @@ import com.facebook.react.bridge.WritableMap
 class IconSwitcherModule(reactContext: ReactApplicationContext) :
   NativeIconSwitcherSpec(reactContext) {
 
-  private val switcher = IconSwitcher(reactApplicationContext)
+  private val switcher = IconSwitcher.getInstance(reactApplicationContext)
 
   override fun initialize() {
     super.initialize()

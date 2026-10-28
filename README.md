@@ -242,7 +242,7 @@ it('applies a pending switch', async () => {
 
 Deferred apply, task recreation when aliases toggle, the `applyPending()` foreground guard, cold-start behaviour, and launcher shortcuts are documented in [docs/guides/android.md](docs/guides/android.md).
 
-Summary: with default `applyOn: 'background'`, `set()` returns `pending` and the launcher updates after the user leaves the app; the process usually survives but the next open may look like a cold start. `applyPending()` in the foreground is refused with `foreground`.
+Summary: with default `applyOn: 'background'`, `set()` returns `pending` and the launcher updates when the last screen stops (including swipe-away from Recents) or after you background the app; listening starts at process start via AndroidX Startup. The process usually survives but the next open may look like a cold start. `applyPending()` in the foreground is refused with `foreground`.
 
 ## Requirements
 

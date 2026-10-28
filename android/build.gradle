@@ -43,6 +43,7 @@ android {
 dependencies {
   implementation "com.facebook.react:react-android"
   implementation "androidx.lifecycle:lifecycle-process:2.8.7"
+  implementation "androidx.startup:startup-runtime:1.2.0"
 
   testImplementation "androidx.test:core:1.7.0"
   testImplementation "junit:junit:4.13.2"
