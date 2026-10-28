@@ -1,5 +1,7 @@
 package com.iconswitcher
 
+import android.app.Activity
+import android.app.Application
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.ActivityInfo
@@ -34,6 +36,7 @@ class IconSwitcherTest {
 
   @Before
   fun setUp() {
+    IconSwitcher.clearInstanceForTests()
     context = ApplicationProvider.getApplicationContext()
     context.getSharedPreferences(IconSwitcher.PREFS_NAME, Context.MODE_PRIVATE)
       .edit()
@@ -205,6 +208,7 @@ class IconSwitcherTest {
       packageName = packageName,
       prefs = prefs,
       lifecycleRegistrar = { lifecycleObserver = it },
+      activityLifecycleRegistrar = { },
       isInForeground = { false },
     )
 
@@ -331,6 +335,231 @@ class IconSwitcherTest {
     ShadowLooper.idleMainLooper()
   }
 
+  @Test
+  fun initializer_starts_singleton_without_react_module() {
+    IconSwitcherInitializer().create(context)
+    val fromInitializer = IconSwitcher.getInstance(context)
+    assertTrue(fromInitializer.isSupported)
+  }
+
+  @Test
+  fun on_process_start_twice_registers_activity_callbacks_once() {
+    var registrationCount = 0
+    val pm = mockk<PackageManager>(relaxed = true)
+    every { pm.getPackageInfo(any<String>(), any<Int>()) } returns robolectricPackageInfo(context.packageName)
+    every { pm.getApplicationInfo(any<String>(), any<Int>()) } returns robolectricApplicationInfo()
+    val switcher = switcherWithActivityCallbacks(
+      pm = pm,
+      onRegister = { registrationCount++ },
+    )
+    switcher.onProcessStart()
+    switcher.onProcessStart()
+    assertEquals(1, registrationCount)
+  }
+
+  @Test
+  fun getInstance_is_shared_between_initializer_calls() {
+    IconSwitcherInitializer().create(context)
+    val first = IconSwitcher.getInstance(context)
+    val second = IconSwitcher.getInstance(context)
+    assertTrue(first === second)
+  }
+
+  @Test
+  fun last_activity_stop_applies_pending_before_on_activity_stopped_returns() {
+    val pm = mockk<PackageManager>(relaxed = true)
+    val packageName = context.packageName
+    every { pm.getPackageInfo(any<String>(), any<Int>()) } returns robolectricPackageInfo(packageName)
+    every { pm.getApplicationInfo(any<String>(), any<Int>()) } returns robolectricApplicationInfo()
+    val settingsSlot = slot<List<PackageManager.ComponentEnabledSetting>>()
+    every { pm.setComponentEnabledSettings(capture(settingsSlot)) } returns Unit
+    every { pm.getComponentEnabledSetting(any()) } answers {
+      val component = firstArg<ComponentName>()
+      if (component.className == ".IconSwitcher_halloween") {
+        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+      } else {
+        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+      }
+    }
+
+    val prefs = context.getSharedPreferences(IconSwitcher.PREFS_NAME, Context.MODE_PRIVATE)
+    prefs.edit().putString(IconSwitcher.KEY_PENDING, "halloween").apply()
+
+    var callbacks: Application.ActivityLifecycleCallbacks? = null
+    val switcher = switcherWithActivityCallbacks(pm) { callbacks = it }
+    switcher.onProcessStart()
+
+    val activity = mockk<Activity>(relaxed = true)
+    every { activity.isChangingConfigurations } returns false
+    callbacks!!.onActivityStarted(activity)
+    callbacks!!.onActivityStopped(activity)
+
+    assertTrue(
+      settingsSlot.captured.any {
+        it.componentName!!.className == ".IconSwitcher_halloween" &&
+          it.enabledFlags == PackageManager.DONT_KILL_APP
+      },
+    )
+    assertEquals(null, prefs.getString(IconSwitcher.KEY_PENDING, null))
+    assertEquals("halloween", prefs.getString(IconSwitcher.KEY_CURRENT, null))
+  }
+
+  @Test
+  fun last_activity_stop_applies_when_callbacks_were_registered_after_it_started() {
+    // No startup provider: listening starts from the module while a screen is
+    // already open, so its start was never counted.
+    val pm = mockk<PackageManager>(relaxed = true)
+    val packageName = context.packageName
+    every { pm.getPackageInfo(any<String>(), any<Int>()) } returns robolectricPackageInfo(packageName)
+    every { pm.getApplicationInfo(any<String>(), any<Int>()) } returns robolectricApplicationInfo()
+    val settingsSlot = slot<List<PackageManager.ComponentEnabledSetting>>()
+    every { pm.setComponentEnabledSettings(capture(settingsSlot)) } returns Unit
+    every { pm.getComponentEnabledSetting(any()) } answers {
+      val component = firstArg<ComponentName>()
+      if (component.className == ".IconSwitcher_halloween") {
+        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+      } else {
+        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+      }
+    }
+
+    val prefs = context.getSharedPreferences(IconSwitcher.PREFS_NAME, Context.MODE_PRIVATE)
+    prefs.edit().putString(IconSwitcher.KEY_PENDING, "halloween").apply()
+
+    var callbacks: Application.ActivityLifecycleCallbacks? = null
+    val switcher = switcherWithActivityCallbacks(pm) { callbacks = it }
+    switcher.onProcessStart()
+
+    val activity = mockk<Activity>(relaxed = true)
+    every { activity.isChangingConfigurations } returns false
+    callbacks!!.onActivityStopped(activity)
+
+    assertTrue(settingsSlot.isCaptured)
+    assertEquals(null, prefs.getString(IconSwitcher.KEY_PENDING, null))
+    assertEquals("halloween", prefs.getString(IconSwitcher.KEY_CURRENT, null))
+  }
+
+  @Test
+  fun last_activity_stop_with_two_activities_applies_only_after_both_stop() {
+    val pm = mockk<PackageManager>(relaxed = true)
+    val packageName = context.packageName
+    every { pm.getPackageInfo(any<String>(), any<Int>()) } returns robolectricPackageInfo(packageName)
+    every { pm.getApplicationInfo(any<String>(), any<Int>()) } returns robolectricApplicationInfo()
+
+    val prefs = context.getSharedPreferences(IconSwitcher.PREFS_NAME, Context.MODE_PRIVATE)
+    prefs.edit().putString(IconSwitcher.KEY_PENDING, "halloween").apply()
+
+    var callbacks: Application.ActivityLifecycleCallbacks? = null
+    val switcher = switcherWithActivityCallbacks(pm) { callbacks = it }
+    switcher.onProcessStart()
+
+    val first = mockk<Activity>(relaxed = true)
+    val second = mockk<Activity>(relaxed = true)
+    every { first.isChangingConfigurations } returns false
+    every { second.isChangingConfigurations } returns false
+
+    callbacks!!.onActivityStarted(first)
+    callbacks!!.onActivityStarted(second)
+    callbacks!!.onActivityStopped(second)
+    verify(exactly = 0) { pm.setComponentEnabledSettings(any()) }
+
+    every { pm.getComponentEnabledSetting(any()) } answers {
+      val component = firstArg<ComponentName>()
+      if (component.className == ".IconSwitcher_halloween") {
+        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+      } else {
+        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+      }
+    }
+    every { pm.setComponentEnabledSettings(any<List<PackageManager.ComponentEnabledSetting>>()) } returns Unit
+
+    callbacks!!.onActivityStopped(first)
+    verify(exactly = 1) { pm.setComponentEnabledSettings(any()) }
+  }
+
+  @Test
+  fun last_activity_stop_during_configuration_change_does_not_apply() {
+    val pm = mockk<PackageManager>(relaxed = true)
+    every { pm.getPackageInfo(any<String>(), any<Int>()) } returns robolectricPackageInfo(context.packageName)
+    every { pm.getApplicationInfo(any<String>(), any<Int>()) } returns robolectricApplicationInfo()
+
+    context.getSharedPreferences(IconSwitcher.PREFS_NAME, Context.MODE_PRIVATE)
+      .edit()
+      .putString(IconSwitcher.KEY_PENDING, "halloween")
+      .apply()
+
+    var callbacks: Application.ActivityLifecycleCallbacks? = null
+    val switcher = switcherWithActivityCallbacks(pm) { callbacks = it }
+    switcher.onProcessStart()
+
+    val activity = mockk<Activity>(relaxed = true)
+    every { activity.isChangingConfigurations } returns true
+    callbacks!!.onActivityStarted(activity)
+    callbacks!!.onActivityStopped(activity)
+
+    verify(exactly = 0) { pm.setComponentEnabledSettings(any()) }
+  }
+
+  @Test
+  fun last_activity_stop_without_pending_does_nothing() {
+    val pm = mockk<PackageManager>(relaxed = true)
+    every { pm.getPackageInfo(any<String>(), any<Int>()) } returns robolectricPackageInfo(context.packageName)
+    every { pm.getApplicationInfo(any<String>(), any<Int>()) } returns robolectricApplicationInfo()
+
+    var callbacks: Application.ActivityLifecycleCallbacks? = null
+    val switcher = switcherWithActivityCallbacks(pm) { callbacks = it }
+    switcher.onProcessStart()
+
+    val activity = mockk<Activity>(relaxed = true)
+    every { activity.isChangingConfigurations } returns false
+    callbacks!!.onActivityStarted(activity)
+    callbacks!!.onActivityStopped(activity)
+
+    verify(exactly = 0) { pm.setComponentEnabledSettings(any()) }
+  }
+
+  @Test
+  fun last_activity_stop_apply_failure_stores_last_error_without_throwing() {
+    val pm = mockk<PackageManager>(relaxed = true)
+    every { pm.getPackageInfo(any<String>(), any<Int>()) } returns robolectricPackageInfo(context.packageName)
+    every { pm.getApplicationInfo(any<String>(), any<Int>()) } returns robolectricApplicationInfo()
+    every { pm.setComponentEnabledSettings(any<List<PackageManager.ComponentEnabledSetting>>()) } throws
+      RuntimeException("pm failed")
+    every { pm.getComponentEnabledSetting(any()) } returns PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+
+    val prefs = context.getSharedPreferences(IconSwitcher.PREFS_NAME, Context.MODE_PRIVATE)
+    prefs.edit().putString(IconSwitcher.KEY_PENDING, "halloween").apply()
+
+    var callbacks: Application.ActivityLifecycleCallbacks? = null
+    val switcher = switcherWithActivityCallbacks(pm) { callbacks = it }
+    switcher.onProcessStart()
+
+    val activity = mockk<Activity>(relaxed = true)
+    every { activity.isChangingConfigurations } returns false
+    callbacks!!.onActivityStarted(activity)
+    callbacks!!.onActivityStopped(activity)
+
+    assertEquals("halloween", prefs.getString(IconSwitcher.KEY_PENDING, null))
+    assertEquals("pm failed", prefs.getString(IconSwitcher.KEY_LAST_ERROR, null))
+  }
+
+  private fun switcherWithActivityCallbacks(
+    pm: PackageManager,
+    prefs: android.content.SharedPreferences =
+      context.getSharedPreferences(IconSwitcher.PREFS_NAME, Context.MODE_PRIVATE),
+    onRegister: (Application.ActivityLifecycleCallbacks) -> Unit = { },
+  ): IconSwitcher {
+    return IconSwitcher(
+      context = context,
+      packageManager = pm,
+      packageName = context.packageName,
+      prefs = prefs,
+      lifecycleRegistrar = { },
+      activityLifecycleRegistrar = onRegister,
+      isInForeground = { false },
+    )
+  }
+
   private fun switcherWithForeground(
     pm: PackageManager,
     inForeground: Boolean,
@@ -343,6 +572,7 @@ class IconSwitcherTest {
       packageName = context.packageName,
       prefs = prefs,
       lifecycleRegistrar = { },
+      activityLifecycleRegistrar = { },
       isInForeground = { inForeground },
     )
   }

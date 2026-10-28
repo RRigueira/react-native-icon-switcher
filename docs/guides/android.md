@@ -6,7 +6,9 @@ This library switches the launcher icon at runtime by enabling one `activity-ali
 
 1. **Aliases** — The build step adds one exported `activity-alias` per configured icon (including `default`). Every alias carries the `MAIN` / `LAUNCHER` intent filter, and `MainActivity` loses it; only the active alias is enabled, and the rest are disabled with `PackageManager.DONT_KILL_APP`.
 
-2. **Deferred apply (default)** — With `android.applyOn: 'background'` (the default), `IconSwitcher.set()` writes the desired icon name to SharedPreferences as `pending` and resolves `{ status: 'pending' }`. The actual PackageManager updates run when the process lifecycle reaches `onStop` (app in the background) or when you call `IconSwitcher.applyPending()` while the app is **not** in the foreground.
+2. **Deferred apply (default)** — With `android.applyOn: 'background'` (the default), `IconSwitcher.set()` writes the desired icon name to SharedPreferences as `pending` and resolves `{ status: 'pending' }`. The actual PackageManager updates run as soon as the app's last activity stops (including when the user swipes the task away from Recents, before the process is killed), when you call `IconSwitcher.applyPending()` while the app is **not** in the foreground, or as a fallback when `ProcessLifecycleOwner` reaches `onStop` (slightly later than the last activity stop on some devices).
+
+   Listening starts at **process start** via AndroidX App Startup (`com.iconswitcher.IconSwitcherInitializer`, registered in the library manifest under `androidx.startup.InitializationProvider`). If your app removes `InitializationProvider`, keep the initializer `meta-data` entry or rely on the TurboModule calling `onProcessStart()` the first time JavaScript touches `IconSwitcher`.
 
 3. **Read-back** — After every apply, the native layer reads `getComponentEnabledSetting` for every marked alias. If the OS state does not match what was requested, the immediate path rejects with `os_rejected`; the deferred path stores `lastError` in prefs.
 
