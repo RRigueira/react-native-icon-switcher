@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.7](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.6...v0.1.7) (2026-10-28)
+
+### Bug Fixes
+
+* **android:** apply the pending icon when the last screen stops ([#10](https://github.com/RRigueira/react-native-icon-switcher/issues/10)) ([b71e59e](https://github.com/RRigueira/react-native-icon-switcher/commit/b71e59e4e9e2dfab513afedcb3d97ad120d4b282))
+
 ## [0.1.6](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.5...v0.1.6) (2026-10-27)
 
 ## [0.1.5](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.4...v0.1.5) (2026-10-27)
