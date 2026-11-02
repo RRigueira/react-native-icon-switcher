@@ -293,3 +293,42 @@ describe('syncIcon', () => {
     expect(mockNativeState.setCalls).toEqual(['halloween']);
   });
 });
+
+describe('syncIcon restarts', () => {
+  it('applies a choice once when syncIcon is restarted while set is in flight', async () => {
+    mockNativeState.setImpl = async (name) => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 30));
+      mockNativeState.current = name;
+      return { status: 'applied' };
+    };
+    const fetchChoice = async () => 'halloween';
+
+    const first = await syncIcon({ fetchChoice });
+    first();
+    const second = await syncIcon({ fetchChoice });
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    second();
+
+    expect(mockNativeState.setCalls).toEqual(['halloween']);
+  });
+
+  it('does not apply a choice after the instance was unsubscribed', async () => {
+    const rn = jest.requireMock('react-native') as {
+      Platform: { OS: string };
+    };
+    rn.Platform.OS = 'ios';
+    let release!: (value: string) => void;
+    const fetchChoice = () =>
+      new Promise<string>((resolve) => {
+        release = resolve;
+      });
+
+    const stop = await syncIcon({ fetchChoice });
+    await _flushAsync();
+    stop();
+    release('halloween');
+    await _flushAsync();
+
+    expect(mockNativeState.setCalls).toEqual([]);
+  });
+});
