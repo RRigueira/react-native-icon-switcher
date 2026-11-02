@@ -64,6 +64,17 @@ function _isFailedBlocked(
   return Date.now() - failed.at < retryAfterMs;
 }
 
+// Shared by every syncIcon instance: callers restart syncIcon when their inputs change, and an
+// older instance's run can still be waiting on the OS (iOS shows an alert per set call). Running
+// one at a time lets the next run see the icon the previous one applied.
+let _queue: Promise<void> = Promise.resolve();
+
+function _enqueue(task: () => Promise<void>): Promise<void> {
+  const next = _queue.then(task, task);
+  _queue = next.catch(() => {});
+  return next;
+}
+
 /**
  * Fetches the remote icon choice, validates it, and applies it via {@link IconSwitcher}.
  * iOS: runs while the app is `active`. Android: calls `set` immediately (native may defer).
@@ -81,14 +92,18 @@ export async function syncIcon(options: SyncIconOptions): Promise<() => void> {
   };
 
   let inFlight = false;
+  let stopped = false;
 
-  const run = async (): Promise<void> => {
-    if (inFlight) {
-      return;
-    }
-    inFlight = true;
+  const _apply = async (): Promise<void> => {
     try {
+      // Unsubscribed while queued: the caller has moved on to a newer syncIcon.
+      if (stopped) {
+        return;
+      }
       const choice = await options.fetchChoice();
+      if (stopped) {
+        return;
+      }
       if (choice == null || choice === '') {
         return;
       }
@@ -124,6 +139,16 @@ export async function syncIcon(options: SyncIconOptions): Promise<() => void> {
       }
     } catch (error) {
       reportError(error);
+    }
+  };
+
+  const run = async (): Promise<void> => {
+    if (inFlight || stopped) {
+      return;
+    }
+    inFlight = true;
+    try {
+      await _enqueue(_apply);
     } finally {
       inFlight = false;
     }
@@ -142,9 +167,14 @@ export async function syncIcon(options: SyncIconOptions): Promise<() => void> {
       }
     });
     runWhenActive();
-    return () => subscription.remove();
+    return () => {
+      stopped = true;
+      subscription.remove();
+    };
   }
 
   await run();
-  return () => {};
+  return () => {
+    stopped = true;
+  };
 }
