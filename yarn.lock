@@ -2056,13 +2056,13 @@ __metadata:
   linkType: hard
 
 "@expo/config-plugins@npm:^58.0.10, @expo/config-plugins@npm:~58.0.10":
-  version: 58.0.10
-  resolution: "@expo/config-plugins@npm:58.0.10"
+  version: 58.0.11
+  resolution: "@expo/config-plugins@npm:58.0.11"
   dependencies:
     "@expo/config-types": "npm:^58.0.3"
     "@expo/json-file": "npm:~11.2.1"
     "@expo/plist": "npm:^0.10.1"
-    "@expo/require-utils": "npm:^58.0.4"
+    "@expo/require-utils": "npm:^58.0.5"
     "@expo/sdk-runtime-versions": "npm:^1.0.1"
     chalk: "npm:^4.1.2"
     debug: "npm:^4.3.5"
@@ -2072,7 +2072,7 @@ __metadata:
     slugify: "npm:^1.6.6"
     xcode: "npm:^4.0.0"
     xml2js: "npm:0.6.0"
-  checksum: 10c0/b888aa6ed7506b74a97f6c4208e8740bac959e20e7810d9568f10c31f06d502f9a228b67895a0b0054b78be77371e71c865587cd446e296c473c91764b141e14
+  checksum: 10c0/a90bd2b166de6e6bcac8d94e61dd398a0fd1a20630460c59550243e2f3b8d6f1491e44dbcf202ff93e24ab8b8a6e956a443b9c03eb4019d485314d3b649b664a
   languageName: node
   linkType: hard
 
@@ -2445,6 +2445,22 @@ __metadata:
     typescript:
       optional: true
   checksum: 10c0/67678e0c4bc31c99bf2f4a667599bb8294f2a6cdd4e63c388a28e35272b3bdad0d92066b8dc42c09cfe4c0c99a12cac24b4715aae3816d3d0d318abf84d20117
+  languageName: node
+  linkType: hard
+
+"@expo/require-utils@npm:^58.0.5":
+  version: 58.0.5
+  resolution: "@expo/require-utils@npm:58.0.5"
+  dependencies:
+    "@babel/code-frame": "npm:^7.20.0"
+    "@babel/core": "npm:^7.25.2"
+    "@babel/plugin-transform-modules-commonjs": "npm:^7.24.8"
+  peerDependencies:
+    typescript: ^5.0.0 || ^5.0.0-0 || ^6.0.0 || ^7.0.0
+  peerDependenciesMeta:
+    typescript:
+      optional: true
+  checksum: 10c0/2217314eef8750a04fb8965dfbe0bfe15f2b0efe4fba120c8c8b0bb1e69914f7ed6156ad3962154d728cc83f5f0e285061c98a44ad9804e849f3b09b18a97698
   languageName: node
   linkType: hard
 
