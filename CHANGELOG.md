@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.8](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.7...v0.1.8) (2026-11-02)
+
+### Bug Fixes
+
+* **remote:** serialize syncIcon runs and stop them after unsubscribe ([#11](https://github.com/RRigueira/react-native-icon-switcher/issues/11)) ([0596dd7](https://github.com/RRigueira/react-native-icon-switcher/commit/0596dd76f44c5f4058318d1be97dadabdaa07de4))
+
 ## [0.1.7](https://github.com/RRigueira/react-native-icon-switcher/compare/v0.1.6...v0.1.7) (2026-10-28)
 
 ### Bug Fixes
