@@ -4525,17 +4525,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native/new-app-screen@npm:0.88.0":
-  version: 0.88.0
-  resolution: "@react-native/new-app-screen@npm:0.88.0"
+"@react-native/new-app-screen@npm:0.88.1":
+  version: 0.88.1
+  resolution: "@react-native/new-app-screen@npm:0.88.1"
   peerDependencies:
     "@types/react": ^19.1.0
     react: "*"
-    react-native: 0.88.0
+    react-native: 0.88.1
   peerDependenciesMeta:
     "@types/react":
       optional: true
-  checksum: 10c0/2ee004be9157686bc205cd06d2531baa50060a429297ddd134dcc7af196debc337c0fd225a345753835e8af3b3b4a441973135bfb60de21e2e778fda2d246efd
+  checksum: 10c0/fd7ba89bc68e8fdd76f666bf46f272ec8c192f2fc658e0c0f26759f9816139f9e714bf0140200249a6d10a397800874f841a173376850934f1e51b594ea7e66a
   languageName: node
   linkType: hard
 
@@ -12701,7 +12701,7 @@ __metadata:
     "@react-native/eslint-config": "npm:0.88.0"
     "@react-native/jest-preset": "npm:0.88.0"
     "@react-native/metro-config": "npm:0.88.0"
-    "@react-native/new-app-screen": "npm:0.88.0"
+    "@react-native/new-app-screen": "npm:0.88.1"
     "@react-native/typescript-config": "npm:0.88.0"
     "@types/jest": "npm:^29.5.13"
     "@types/react": "npm:^19.2.0"
